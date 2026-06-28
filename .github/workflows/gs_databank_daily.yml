@@ -1,0 +1,38 @@
+name: GS Data Bank Daily
+on:
+  schedule:
+    - cron: "30 0 * * *"   # 00:30 UTC = 06:00 IST, every day
+  workflow_dispatch:
+jobs:
+  run_gs_updater:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Create agent session
+        id: cs
+        run: |
+          R=$(curl -s -X POST https://api.anthropic.com/v1/sessions -H "x-api-key: ${{ secrets.ANTHROPIC_API_KEY }}" -H "anthropic-version: 2023-06-01" -H "anthropic-beta: managed-agents-2026-04-01" -H "Content-Type: application/json" -d "{\"agent\":\"${{ secrets.GS_UPDATER_AGENT_ID }}\",\"environment_id\":\"${{ secrets.GS_UPDATER_ENV_ID }}\"}")
+          SID=$(echo "$R" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
+          echo "SID=$SID" >> $GITHUB_OUTPUT
+      - name: Trigger
+        run: |
+          curl -s -X POST "https://api.anthropic.com/v1/sessions/${{ steps.cs.outputs.SID }}/events" -H "x-api-key: ${{ secrets.ANTHROPIC_API_KEY }}" -H "anthropic-version: 2023-06-01" -H "anthropic-beta: managed-agents-2026-04-01" -H "Content-Type: application/json" -d '{"events":[{"type":"user.message","content":[{"type":"text","text":"execute"}]}]}'
+      - name: Poll until completion
+        run: |
+          SID="${{ steps.cs.outputs.SID }}"; MAX=40; I=0; LAST=0; STABLE=0; STARTED=false
+          sleep 20
+          while [ $I -lt $MAX ]; do
+            I=$((I+1))
+            EVTS=$(curl -s "https://api.anthropic.com/v1/sessions/$SID/events" -H "x-api-key: ${{ secrets.ANTHROPIC_API_KEY }}" -H "anthropic-version: 2023-06-01" -H "anthropic-beta: managed-agents-2026-04-01")
+            SESS=$(curl -s "https://api.anthropic.com/v1/sessions/$SID" -H "x-api-key: ${{ secrets.ANTHROPIC_API_KEY }}" -H "anthropic-version: 2023-06-01" -H "anthropic-beta: managed-agents-2026-04-01")
+            COUNT=$(echo "$EVTS" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d.get('data',d.get('events',[]))))" 2>/dev/null || echo "0")
+            STATUS=$(echo "$SESS" | python3 -c "import sys,json; print(json.load(sys.stdin).get('status','unknown'))" 2>/dev/null || echo "unknown")
+            echo "Status: $STATUS | Events: $COUNT"
+            if [ "$COUNT" -gt 0 ] && [ "$STARTED" = "false" ]; then STARTED=true; STABLE=0; fi
+            if [ "$STARTED" = "true" ] && [ "$STATUS" = "idle" ]; then
+              if [ "$COUNT" -eq "$LAST" ]; then STABLE=$((STABLE+1)); [ $STABLE -ge 3 ] && { echo "Done"; break; }; else STABLE=0; fi
+            fi
+            LAST=$COUNT
+            { [ "$STATUS" = "error" ] || [ "$STATUS" = "failed" ]; } && { echo "Failed"; exit 1; }
+            sleep 30
+          done
