@@ -1,0 +1,105 @@
+name: Essay Sentinel Daily
+on:
+  schedule:
+    - cron: "0 2 * * *"   # 02:00 UTC = 07:30 IST, every day
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "force mode (brief|video); blank = auto by weekday"
+        required: false
+        default: ""
+jobs:
+  run_essay_sentinel:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install ffmpeg, fonts and Python libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-liberation
+          pip install -r requirements.txt
+      - name: Decide mode (Mon/Wed/Fri = brief, else video)
+        id: mode
+        run: |
+          FORCED="${{ github.event.inputs.mode }}"
+          if [ -n "$FORCED" ]; then
+            MODE="$FORCED"
+          else
+            DOW=$(TZ=Asia/Kolkata date +%u)
+            if [ "$DOW" = "1" ] || [ "$DOW" = "3" ] || [ "$DOW" = "5" ]; then MODE="brief"; else MODE="video"; fi
+          fi
+          echo "MODE=$MODE" >> $GITHUB_OUTPUT
+          echo "Today's mode: $MODE"
+      - name: Create agent session
+        id: create_session
+        run: |
+          RESPONSE=$(curl -s -X POST https://api.anthropic.com/v1/sessions -H "x-api-key: ${{ secrets.ANTHROPIC_API_KEY }}" -H "anthropic-version: 2023-06-01" -H "anthropic-beta: managed-agents-2026-04-01" -H "Content-Type: application/json" -d "{\"agent\":\"${{ secrets.ESSAY_AGENT_ID }}\",\"environment_id\":\"${{ secrets.ESSAY_ENV_ID }}\"}")
+          SESSION_ID=$(echo "$RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
+          echo "SESSION_ID=$SESSION_ID" >> $GITHUB_OUTPUT
+      - name: Send trigger (with mode)
+        run: |
+          SID="${{ steps.create_session.outputs.SESSION_ID }}"
+          MODE="${{ steps.mode.outputs.MODE }}"
+          curl -s -X POST "https://api.anthropic.com/v1/sessions/$SID/events" -H "x-api-key: ${{ secrets.ANTHROPIC_API_KEY }}" -H "anthropic-version: 2023-06-01" -H "anthropic-beta: managed-agents-2026-04-01" -H "Content-Type: application/json" -d "{\"events\":[{\"type\":\"user.message\",\"content\":[{\"type\":\"text\",\"text\":\"execute mode=$MODE\"}]}]}"
+      - name: Poll until completion
+        run: |
+          SID="${{ steps.create_session.outputs.SESSION_ID }}"
+          MAX=80; I=0; LAST=0; STABLE=0; STARTED=false
+          sleep 20
+          while [ $I -lt $MAX ]; do
+            I=$((I+1))
+            EVTS=$(curl -s "https://api.anthropic.com/v1/sessions/$SID/events" -H "x-api-key: ${{ secrets.ANTHROPIC_API_KEY }}" -H "anthropic-version: 2023-06-01" -H "anthropic-beta: managed-agents-2026-04-01")
+            SESS=$(curl -s "https://api.anthropic.com/v1/sessions/$SID" -H "x-api-key: ${{ secrets.ANTHROPIC_API_KEY }}" -H "anthropic-version: 2023-06-01" -H "anthropic-beta: managed-agents-2026-04-01")
+            COUNT=$(echo "$EVTS" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d.get('data',d.get('events',[]))))" 2>/dev/null || echo "0")
+            STATUS=$(echo "$SESS" | python3 -c "import sys,json; print(json.load(sys.stdin).get('status','unknown'))" 2>/dev/null || echo "unknown")
+            echo "Status: $STATUS | Events: $COUNT"
+            if [ "$COUNT" -gt 0 ] && [ "$STARTED" = "false" ]; then STARTED=true; STABLE=0; fi
+            if [ "$STARTED" = "true" ] && [ "$STATUS" = "idle" ]; then
+              if [ "$COUNT" -eq "$LAST" ]; then STABLE=$((STABLE+1)); [ $STABLE -ge 3 ] && { echo "Done. Events: $COUNT"; break; }; else STABLE=0; fi
+            fi
+            LAST=$COUNT
+            { [ "$STATUS" = "error" ] || [ "$STATUS" = "failed" ]; } && { echo "Failed: $STATUS"; exit 1; }
+            sleep 30
+          done
+      - name: Extract video script JSON
+        run: |
+          SID="${{ steps.create_session.outputs.SESSION_ID }}"
+          curl -s "https://api.anthropic.com/v1/sessions/$SID/events" -H "x-api-key: ${{ secrets.ANTHROPIC_API_KEY }}" -H "anthropic-version: 2023-06-01" -H "anthropic-beta: managed-agents-2026-04-01" > events.json
+          python3 - << 'PY'
+          import json, re
+          data = json.load(open("events.json")); chunks=[]
+          def walk(x):
+              if isinstance(x,str): chunks.append(x)
+              elif isinstance(x,dict):
+                  for v in x.values(): walk(v)
+              elif isinstance(x,list):
+                  for v in x: walk(v)
+          walk(data)
+          m = re.search(r"VIDEO_SCRIPT_JSON_BEGIN===(.*?)===VIDEO_SCRIPT_JSON_END", "\n".join(chunks), re.S)
+          if not m: raise SystemExit("No video-script sentinel in agent output")
+          obj = json.loads(m.group(1).strip())
+          json.dump(obj, open("video_script.json","w"), ensure_ascii=False, indent=2)
+          print("Extracted", obj.get("issue_no"), "mode", obj.get("mode"))
+          PY
+      - name: Render video
+        env:
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          ESSAY_VOICE_ID: ${{ secrets.ESSAY_VOICE_ID }}
+        run: python3 render_video.py video_script.json
+      - name: Upload to YouTube and post to Telegram
+        env:
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHANNEL: ${{ secrets.TELEGRAM_CHANNEL }}
+          ESSAY_SUBSCRIBE_URL: ${{ secrets.ESSAY_SUBSCRIBE_URL }}
+        run: |
+          ISSUE=$(python3 -c "import json;print(json.load(open('video_script.json'))['issue_no'])")
+          URL=$(python3 upload_youtube.py --video build/issue_$ISSUE/video_issue_$ISSUE.mp4 --meta build/issue_$ISSUE/youtube_meta.txt --privacy public | grep -o 'https://youtu.be/[^ ]*' | head -1)
+          echo "YouTube: $URL"
+          python3 post_telegram.py --json video_script.json --youtube "$URL" --thumb build/issue_$ISSUE/slides/slide_01.png
