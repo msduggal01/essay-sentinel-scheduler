@@ -1,3 +1,14 @@
+# Essay Sentinel - DAILY run with weekday-driven mode
+# Place at  .github/workflows/essay_daily.yml  in the Essay pipeline repo
+# (alongside 04_Code/*.py + requirements.txt).
+#
+# One daily cron. Mon/Wed/Fri -> mode=brief (paid PDF + email + archive + video).
+# All other days -> mode=video (free daily masterclass only). One video every day,
+# a PDF three times a week. No double-runs.
+#
+# Repo secrets: ANTHROPIC_API_KEY, ESSAY_AGENT_ID, ESSAY_ENV_ID, ELEVENLABS_API_KEY,
+#   ESSAY_VOICE_ID, YT_CLIENT_ID, YT_CLIENT_SECRET, YT_REFRESH_TOKEN,
+#   TELEGRAM_BOT_TOKEN, TELEGRAM_CHANNEL (=@upscdesk_essay), ESSAY_SUBSCRIBE_URL
 name: Essay Sentinel Daily
 on:
   schedule:
@@ -22,6 +33,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ffmpeg fonts-liberation
           pip install -r requirements.txt
+
       - name: Decide mode (Mon/Wed/Fri = brief, else video)
         id: mode
         run: |
@@ -29,22 +41,26 @@ jobs:
           if [ -n "$FORCED" ]; then
             MODE="$FORCED"
           else
-            DOW=$(TZ=Asia/Kolkata date +%u)
+            DOW=$(date -u +%u)   # 1=Mon .. 7=Sun
             if [ "$DOW" = "1" ] || [ "$DOW" = "3" ] || [ "$DOW" = "5" ]; then MODE="brief"; else MODE="video"; fi
           fi
           echo "MODE=$MODE" >> $GITHUB_OUTPUT
           echo "Today's mode: $MODE"
+
       - name: Create agent session
         id: create_session
         run: |
           RESPONSE=$(curl -s -X POST https://api.anthropic.com/v1/sessions -H "x-api-key: ${{ secrets.ANTHROPIC_API_KEY }}" -H "anthropic-version: 2023-06-01" -H "anthropic-beta: managed-agents-2026-04-01" -H "Content-Type: application/json" -d "{\"agent\":\"${{ secrets.ESSAY_AGENT_ID }}\",\"environment_id\":\"${{ secrets.ESSAY_ENV_ID }}\"}")
           SESSION_ID=$(echo "$RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
           echo "SESSION_ID=$SESSION_ID" >> $GITHUB_OUTPUT
+          echo "Session: $SESSION_ID"
+
       - name: Send trigger (with mode)
         run: |
           SID="${{ steps.create_session.outputs.SESSION_ID }}"
           MODE="${{ steps.mode.outputs.MODE }}"
           curl -s -X POST "https://api.anthropic.com/v1/sessions/$SID/events" -H "x-api-key: ${{ secrets.ANTHROPIC_API_KEY }}" -H "anthropic-version: 2023-06-01" -H "anthropic-beta: managed-agents-2026-04-01" -H "Content-Type: application/json" -d "{\"events\":[{\"type\":\"user.message\",\"content\":[{\"type\":\"text\",\"text\":\"execute mode=$MODE\"}]}]}"
+
       - name: Poll until completion
         run: |
           SID="${{ steps.create_session.outputs.SESSION_ID }}"
@@ -65,6 +81,7 @@ jobs:
             { [ "$STATUS" = "error" ] || [ "$STATUS" = "failed" ]; } && { echo "Failed: $STATUS"; exit 1; }
             sleep 30
           done
+
       - name: Extract video script JSON
         run: |
           SID="${{ steps.create_session.outputs.SESSION_ID }}"
@@ -81,15 +98,22 @@ jobs:
           walk(data)
           m = re.search(r"VIDEO_SCRIPT_JSON_BEGIN===(.*?)===VIDEO_SCRIPT_JSON_END", "\n".join(chunks), re.S)
           if not m: raise SystemExit("No video-script sentinel in agent output")
-          obj = json.loads(m.group(1).strip())
+          raw = m.group(1).strip()
+          try:
+              obj = json.loads(raw, strict=False)
+          except json.JSONDecodeError:
+              raw = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", raw)
+              obj = json.loads(raw, strict=False)
           json.dump(obj, open("video_script.json","w"), ensure_ascii=False, indent=2)
           print("Extracted", obj.get("issue_no"), "mode", obj.get("mode"))
           PY
+
       - name: Render video
         env:
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
           ESSAY_VOICE_ID: ${{ secrets.ESSAY_VOICE_ID }}
         run: python3 render_video.py video_script.json
+
       - name: Upload to YouTube and post to Telegram
         env:
           YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
