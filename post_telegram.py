@@ -27,7 +27,7 @@ except ImportError:
     print("Run: pip3 install requests")
     sys.exit(1)
 
-SUBSCRIBE = os.environ.get("ESSAY_SUBSCRIBE_URL", "https://essaydesk.netlify.app/")
+SUBSCRIBE = os.environ.get("ESSAY_SUBSCRIBE_URL", "https://subscribe.upscdesk.com/essay/")
 
 def build_caption(data, youtube=None):
     """HTML link-card caption: bold heading, a daily one-liner hook, blank line
@@ -53,7 +53,7 @@ def build_caption(data, youtube=None):
         L.append("• " + esc(ch["title"]))
 
     L.append("")
-    L.append("🎯 The full brief - three model essays of 1000 to 1200 words, the dimensions maps, the anchor banks and the model intros and conclusions - goes to subscribers only.")
+    L.append("🎯 The full brief - two model essays of 1000 to 1200 words, the dimensions maps, the anchor banks and the model intros and conclusions - goes to subscribers only.")
     L.append("Subscribe: " + SUBSCRIBE)
 
     L.append("")

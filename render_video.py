@@ -241,19 +241,24 @@ def normalize_tts(text):
 # ----------------------------------------------------------------------------
 # ElevenLabs TTS
 # ----------------------------------------------------------------------------
-def tts(text, out_path, api_key, voice_id, model_id):
+def tts(text, out_path, api_key, voice_id, model_id, previous_text=None, next_text=None):
     import urllib.request, urllib.error
     url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
-    body = json.dumps({
+    payload = {
         "text": normalize_tts(text),
         "model_id": model_id,
         "voice_settings": {
-            "stability": 0.40,        # lower = more expressive, natural variation and breaths
-            "similarity_boost": 0.85,
-            "style": 0.35,            # adds warmth and inflection
+            "stability": 0.55,        # higher = steadier; stops the pitch "reset" at each slide
+            "similarity_boost": 0.90, # hold the timbre consistent across clips
+            "style": 0.18,            # low style = minimal random inflection swings between clips
             "use_speaker_boost": True
         }
-    }).encode("utf-8")
+    }
+    # Request stitching: give each slide the neighbouring narration as context so the
+    # voice carries prosody and pitch across the cut instead of restarting cold.
+    if previous_text: payload["previous_text"] = normalize_tts(previous_text)
+    if next_text:     payload["next_text"] = normalize_tts(next_text)
+    body = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(url, data=body, method="POST", headers={
         "xi-api-key": api_key,
         "Content-Type": "application/json",
@@ -407,12 +412,14 @@ def main():
     auds = []
     imgs_dur = []
     print("Generating narration..." + (f" (first {limit} slides)" if limit else ""))
-    for sl in work:
+    for idx, sl in enumerate(work):
         sid = sl["id"]
         png = os.path.join(sdir, f"slide_{sid:02d}.png")
         mp3 = os.path.join(adir, f"slide_{sid:02d}.mp3")
         aud = os.path.join(adir, f"slide_{sid:02d}.m4a")
-        tts(sl["narration"], mp3, api_key, voice_id, model_id)
+        prev_t = work[idx-1]["narration"] if idx > 0 else None
+        next_t = work[idx+1]["narration"] if idx < len(work)-1 else None
+        tts(sl["narration"], mp3, api_key, voice_id, model_id, prev_t, next_t)
         prep_audio(mp3, aud, speed=speed, tail=0.12)
         d_i = duration(aud)
         durations[sid] = d_i
@@ -441,6 +448,9 @@ def main():
     lines.append("")
     lines.append("Join our Telegram channel for the daily masterclass and the latest updates:")
     lines.append("https://t.me/upscdesk_essay   (@upscdesk_essay)")
+    lines.append("")
+    lines.append("Subscribe to the full daily Essay brief - two model essays with the examiner's commentary, three mornings a week:")
+    lines.append(os.environ.get("ESSAY_SUBSCRIBE_URL", "https://subscribe.upscdesk.com/essay/"))
     # AI-narration disclosure: NOT on every video - show it on roughly 1 in 10 videos only.
     if random.random() < 0.1:
         lines.append("")
