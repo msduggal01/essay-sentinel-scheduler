@@ -368,11 +368,15 @@ def build_final(images_durations, audio_master, out_path, workdir):
             f.write(f"file '{os.path.abspath(img)}'\n")
             f.write(f"duration {dur:.4f}\n")
         f.write(f"file '{os.path.abspath(images_durations[-1][0])}'\n")
+    adur = duration(audio_master)   # cap to the exact narration length: the concat
+    # demuxer holds the trailing repeated frame, which would otherwise leave a long
+    # silent last slide (video stream running past the audio).
     subprocess.check_call([
         "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", listf, "-i", audio_master,
         "-map", "0:v:0", "-map", "1:a:0",
         "-c:v", "libx264", "-tune", "stillimage", "-r", "30", "-pix_fmt", "yuv420p",
-        "-c:a", "aac", "-b:a", "192k", "-vf", "scale=1920:1080", "-shortest", out_path
+        "-c:a", "aac", "-b:a", "192k", "-vf", "scale=1920:1080",
+        "-t", f"{adur:.3f}", "-shortest", out_path
     ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 def fmt_ts(seconds):
@@ -440,39 +444,65 @@ def main():
 
     work = slides[:limit] if limit else slides
 
-    # ---- ONE continuous narration for the whole episode ----
-    # eleven_v3 restarts its pitch/prosody on every separate call, which is what
-    # made the voice "jump" at each slide. So we synthesise the ENTIRE script in a
-    # single call (one continuous take) and time each slide from the per-character
-    # timestamps. The slide image switches at the natural sentence pause that ends
-    # each slide's text - momentum preserved, no pitch break.
+    # ---- Continuous narration, chunked under the 5000-char TTS limit ----
+    # eleven_v3 resets pitch on every call, so we minimise calls: pack whole slides
+    # into the FEWEST chunks under the API's 5000-char cap, synthesise each chunk as
+    # one continuous take (with timestamps), then stitch. A 9-slide episode becomes
+    # ~2 takes => at most one seam instead of eight per-slide restarts.
+    CHAR_LIMIT = 4500
     norm = [normalize_tts(sl["narration"]) for sl in work]
     SEP = "  "
-    combined = SEP.join(norm)
-    bounds, pos = [], 0          # index in `combined` of each slide's last character
+    chunks, cur, cur_len = [], [], 0
     for i, t in enumerate(norm):
-        pos += len(t)
-        bounds.append(pos - 1)
-        if i < len(norm) - 1:
-            pos += len(SEP)
+        add = len(t) + (len(SEP) if cur else 0)
+        if cur and cur_len + add > CHAR_LIMIT:
+            chunks.append(cur); cur, cur_len = [], 0
+            add = len(t)
+        cur.append(i); cur_len += add
+    if cur: chunks.append(cur)
 
-    print(f"Generating ONE continuous narration for {len(work)} slides...")
-    audio_bytes, alignment = tts_full(combined, api_key, voice_id, model_id)
-    raw_mp3 = os.path.join(base, "narration_raw.mp3")
-    with open(raw_mp3, "wb") as f:
-        f.write(audio_bytes)
+    print(f"Generating narration in {len(chunks)} continuous take(s) for {len(work)} slides...")
+    raw_parts, slide_end_global, cum = [], [], 0.0
+    for k, idxs in enumerate(chunks):
+        combined = SEP.join(norm[i] for i in idxs)
+        bounds, pos = [], 0
+        for j, i in enumerate(idxs):
+            pos += len(norm[i])
+            bounds.append(pos - 1)
+            if j < len(idxs) - 1:
+                pos += len(SEP)
+        audio_bytes, alignment = tts_full(combined, api_key, voice_id, model_id)
+        part = os.path.join(base, f"part_{k:02d}.mp3")
+        with open(part, "wb") as f:
+            f.write(audio_bytes)
+        raw_parts.append(part)
+        ends = alignment.get("character_end_times_seconds", [])
+        n = len(ends)
+        part_dur = duration(part)
+        for b in bounds:
+            et = ends[min(b, n - 1)] if n else part_dur
+            slide_end_global.append(cum + et)
+        cum += part_dur
 
-    ends = alignment.get("character_end_times_seconds", [])
-    n = len(ends)
-    slide_end = [ends[min(b, n - 1)] if n else 0.0 for b in bounds]
+    # concatenate the raw takes into one file, then process the whole thing once
+    raw_full = os.path.join(base, "narration_raw.mp3")
+    if len(raw_parts) == 1:
+        os.replace(raw_parts[0], raw_full)
+    else:
+        listf = os.path.join(base, "raw_parts.txt")
+        with open(listf, "w") as f:
+            for p in raw_parts:
+                f.write(f"file '{os.path.abspath(p)}'\n")
+        subprocess.check_call(["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", listf,
+                               "-c:a", "libmp3lame", "-q:a", "2", raw_full],
+                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-    # process the whole take once (playback speed + gentle tail), then split timing
     master = os.path.join(base, "narration.m4a")
-    prep_audio(raw_mp3, master, speed=speed, tail=0.12)
+    prep_audio(raw_full, master, speed=speed, tail=0.12)
     master_dur = duration(master)
 
     raw_durs, prev = [], 0.0
-    for et in slide_end:
+    for et in slide_end_global:
         raw_durs.append(max(0.10, et - prev)); prev = et
     scale = master_dur / (sum(raw_durs) or 1.0)   # make slide times sum to the real audio length
 
