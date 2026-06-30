@@ -277,6 +277,38 @@ def tts(text, out_path, api_key, voice_id, model_id, previous_text=None, next_te
     with open(out_path, "wb") as f:
         f.write(data)
 
+def tts_full(text, api_key, voice_id, model_id):
+    """Synthesise the ENTIRE episode narration in ONE call via the with-timestamps
+    endpoint, so the whole video is a single continuous take (no per-slide pitch
+    reset). Returns (mp3_bytes, alignment) where alignment carries per-character
+    end times, used to work out where each slide ends inside the one audio file."""
+    import urllib.request, urllib.error, base64
+    url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}/with-timestamps"
+    payload = {
+        "text": text,
+        "model_id": model_id,
+        "voice_settings": {
+            "stability": 0.55, "similarity_boost": 0.90,
+            "style": 0.18, "use_speaker_boost": True
+        }
+    }
+    body = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(url, data=body, method="POST", headers={
+        "xi-api-key": api_key, "Content-Type": "application/json", "Accept": "application/json"
+    })
+    try:
+        with urllib.request.urlopen(req, timeout=180) as r:
+            d = json.loads(r.read())
+    except urllib.error.HTTPError as e:
+        detail = ""
+        try: detail = e.read().decode("utf-8")
+        except Exception: pass
+        print(f"\nElevenLabs with-timestamps HTTP {e.code}:\n{detail}\n")
+        raise
+    audio = base64.b64decode(d["audio_base64"])
+    alignment = d.get("alignment") or d.get("normalized_alignment") or {}
+    return audio, alignment
+
 # ----------------------------------------------------------------------------
 # ffmpeg helpers
 # ----------------------------------------------------------------------------
@@ -407,27 +439,52 @@ def main():
         sys.exit(1)
 
     work = slides[:limit] if limit else slides
-    durations = {}
-    auds = []
-    imgs_dur = []
-    print("Generating narration..." + (f" (first {limit} slides)" if limit else ""))
-    for idx, sl in enumerate(work):
+
+    # ---- ONE continuous narration for the whole episode ----
+    # eleven_v3 restarts its pitch/prosody on every separate call, which is what
+    # made the voice "jump" at each slide. So we synthesise the ENTIRE script in a
+    # single call (one continuous take) and time each slide from the per-character
+    # timestamps. The slide image switches at the natural sentence pause that ends
+    # each slide's text - momentum preserved, no pitch break.
+    norm = [normalize_tts(sl["narration"]) for sl in work]
+    SEP = "  "
+    combined = SEP.join(norm)
+    bounds, pos = [], 0          # index in `combined` of each slide's last character
+    for i, t in enumerate(norm):
+        pos += len(t)
+        bounds.append(pos - 1)
+        if i < len(norm) - 1:
+            pos += len(SEP)
+
+    print(f"Generating ONE continuous narration for {len(work)} slides...")
+    audio_bytes, alignment = tts_full(combined, api_key, voice_id, model_id)
+    raw_mp3 = os.path.join(base, "narration_raw.mp3")
+    with open(raw_mp3, "wb") as f:
+        f.write(audio_bytes)
+
+    ends = alignment.get("character_end_times_seconds", [])
+    n = len(ends)
+    slide_end = [ends[min(b, n - 1)] if n else 0.0 for b in bounds]
+
+    # process the whole take once (playback speed + gentle tail), then split timing
+    master = os.path.join(base, "narration.m4a")
+    prep_audio(raw_mp3, master, speed=speed, tail=0.12)
+    master_dur = duration(master)
+
+    raw_durs, prev = [], 0.0
+    for et in slide_end:
+        raw_durs.append(max(0.10, et - prev)); prev = et
+    scale = master_dur / (sum(raw_durs) or 1.0)   # make slide times sum to the real audio length
+
+    durations, imgs_dur = {}, []
+    for i, sl in enumerate(work):
         sid = sl["id"]
         png = os.path.join(sdir, f"slide_{sid:02d}.png")
-        mp3 = os.path.join(adir, f"slide_{sid:02d}.mp3")
-        aud = os.path.join(adir, f"slide_{sid:02d}.m4a")
-        prev_t = work[idx-1]["narration"] if idx > 0 else None
-        next_t = work[idx+1]["narration"] if idx < len(work)-1 else None
-        tts(sl["narration"], mp3, api_key, voice_id, model_id, prev_t, next_t)
-        prep_audio(mp3, aud, speed=speed, tail=0.12)
-        d_i = duration(aud)
+        d_i = raw_durs[i] * scale
         durations[sid] = d_i
-        auds.append(aud)
         imgs_dur.append((png, d_i))
         print(f"  slide {sid:02d}  {d_i:.1f}s")
 
-    master = os.path.join(base, "narration.m4a")
-    concat_audio(auds, master, base)
     final = os.path.join(base, f"video_issue_{issue}.mp4")
     build_final(imgs_dur, master, final, base)
     total = sum(durations.values())
