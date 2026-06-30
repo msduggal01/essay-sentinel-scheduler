@@ -254,10 +254,9 @@ def tts(text, out_path, api_key, voice_id, model_id, previous_text=None, next_te
             "use_speaker_boost": True
         }
     }
-    # Request stitching: give each slide the neighbouring narration as context so the
-    # voice carries prosody and pitch across the cut instead of restarting cold.
-    if previous_text: payload["previous_text"] = normalize_tts(previous_text)
-    if next_text:     payload["next_text"] = normalize_tts(next_text)
+    # NOTE: eleven_v3 does NOT support previous_text/next_text request stitching
+    # (API rejects it). Steadiness across slides therefore comes from the higher
+    # stability + lower style in voice_settings above, not from neighbour context.
     body = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(url, data=body, method="POST", headers={
         "xi-api-key": api_key,
