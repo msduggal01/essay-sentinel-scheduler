@@ -527,10 +527,27 @@ def main():
         cum[sl["id"]] = running
         running += durations[sl["id"]]
 
+    # hashtags for the DESCRIPTION text (YouTube shows the first 3 above the title,
+    # and they are clickable/searchable - unlike the low-value tags field). Evergreen
+    # brand tags first, then this episode's own tags. Cap at 12 (YouTube ignores >15).
+    EVERGREEN = ["UPSC", "UPSCEssay", "UPSCMains2026", "EssayWriting", "CivilServices", "IAS"]
+    def _camel(t):
+        return re.sub(r"[^0-9A-Za-z ]", "", str(t)).title().replace(" ", "")
+    seen, hlist = set(), []
+    for w in EVERGREEN + [_camel(t) for t in data.get("tags", [])]:
+        lw = w.lower()
+        if w and lw not in seen:
+            seen.add(lw); hlist.append("#" + w)
+        if len(hlist) >= 12:
+            break
+    hashtags = " ".join(hlist)
+
     lines = []
     lines.append(data["video_title"])
     lines.append("")
     lines.append(data["video_description"])
+    lines.append("")
+    lines.append(hashtags)
     lines.append("")
     lines.append("Join our Telegram channel for the daily masterclass and the latest updates:")
     lines.append("https://t.me/upscdesk_essay   (@upscdesk_essay)")
