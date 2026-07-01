@@ -124,6 +124,28 @@ jobs:
           ESSAY_SUBSCRIBE_URL: ${{ secrets.ESSAY_SUBSCRIBE_URL }}
         run: |
           ISSUE=$(python3 -c "import json;print(json.load(open('video_script.json'))['issue_no'])")
-          URL=$(python3 upload_youtube.py --video build/issue_$ISSUE/video_issue_$ISSUE.mp4 --meta build/issue_$ISSUE/youtube_meta.txt --privacy public | grep -o 'https://youtu.be/[^ ]*' | head -1)
+          URL=$(python3 upload_youtube.py --video build/issue_$ISSUE/video_issue_$ISSUE.mp4 --meta build/issue_$ISSUE/youtube_meta.txt --thumbnail build/issue_$ISSUE/thumb.png --privacy public | grep -o 'https://youtu.be/[^ ]*' | head -1)
           echo "YouTube: $URL"
-          python3 post_telegram.py --json video_script.json --youtube "$URL" --thumb build/issue_$ISSUE/slides/slide_01.png
+          python3 post_telegram.py --json video_script.json --youtube "$URL" --thumb build/issue_$ISSUE/thumb.png
+
+      # ---- Additive: the day's Essay Shorts (best-effort, never breaks the main run) ----
+      # Builds 2 Essay Shorts from today's topic (1 voiced in the Essay voice, 1 silent
+      # with the music bed), Claret & Gold theme, and uploads them scheduled across the
+      # day. --limit 2 keeps within YouTube's ~6-upload/day free quota shared with the
+      # Sociology desk. Raise/remove --limit after a quota increase is approved.
+      - name: Build and upload the day's Essay Shorts (staggered)
+        continue-on-error: true
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          ESSAY_VOICE_ID: ${{ secrets.ESSAY_VOICE_ID }}
+          ESSAY_SUBSCRIBE_URL: ${{ secrets.ESSAY_SUBSCRIBE_URL }}
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+        run: |
+          if [ -f video_script.json ]; then
+            python3 build_daily_shorts.py video_script.json --desk essay --limit 2
+          else
+            echo "No essay video script today; skipping Essay Shorts (non-blocking)."
+          fi
