@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 """
-Post a rendered Essay Desk masterclass video to its Telegram channel, with a
-caption built from the video_script JSON.
+Post a rendered daily video to the UPSC Desk Telegram channel, with a caption
+built from the video_script JSON.
 
 SETUP (one-time):
   pip3 install requests
-  export TELEGRAM_BOT_TOKEN="123456:ABC..."         # @BotFather (reuse upscdesk_poster_bot)
-  export TELEGRAM_CHANNEL="@upscdesk_essay"         # the NEW Essay Desk channel handle
-  export ESSAY_SUBSCRIBE_URL="https://...netlify.app/"  # the Essay subscribe page
+  export TELEGRAM_BOT_TOKEN="123456:ABC..."         # from @BotFather
+  export TELEGRAM_CHANNEL="@upscdesk_sociology"     # your channel handle
 
 USAGE:
   python3 post_telegram.py \
@@ -27,7 +26,7 @@ except ImportError:
     print("Run: pip3 install requests")
     sys.exit(1)
 
-SUBSCRIBE = os.environ.get("ESSAY_SUBSCRIBE_URL", "https://subscribe.upscdesk.com/essay/")
+SUBSCRIBE = os.environ.get("SOC_SUBSCRIBE_URL") or "https://subscribe.upscdesk.com/sociology/"
 
 def build_caption(data, youtube=None):
     """HTML link-card caption: bold heading, a daily one-liner hook, blank line
@@ -48,13 +47,14 @@ def build_caption(data, youtube=None):
         L.append("▶️ Watch the full breakdown: " + youtube)
 
     L.append("")
-    L.append("📌 <b>Today's masterclass:</b>")
+    L.append("📌 <b>Today's events, decoded for Mains:</b>")
     for ch in data.get("chapters", []):
         L.append("• " + esc(ch["title"]))
 
     L.append("")
-    L.append("🎯 The full brief - two model essays of 1000 to 1200 words, the dimensions maps, the anchor banks and the model intros and conclusions - goes to subscribers only.")
-    L.append("Subscribe: " + SUBSCRIBE)
+    L.append("🎯 The full brief - model answers, answer skeletons, the quotation arsenal, flashcards and examiner notes - goes to subscribers only.")
+    L.append("")
+    L.append('👉 <b>Subscribe:</b>  <b><a href="' + SUBSCRIBE + '">' + SUBSCRIBE + '</a></b>')
 
     L.append("")
     L.append("✉️ For any enquiry, write to us at:")
