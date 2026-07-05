@@ -387,6 +387,63 @@ def fmt_ts(seconds):
 # ----------------------------------------------------------------------------
 # Main
 # ----------------------------------------------------------------------------
+def _grad(W, H, stops):
+    """Smooth diagonal gradient (top-left -> bottom-right) rendered small then upscaled."""
+    sw, sh = 64, 36
+    g = Image.new("RGB", (sw, sh)); px = g.load()
+    for y in range(sh):
+        for x in range(sw):
+            t = (x / (sw - 1) + y / (sh - 1)) / 2
+            for i in range(len(stops) - 1):
+                p0, c0 = stops[i]; p1, c1 = stops[i + 1]
+                if p0 <= t <= p1:
+                    fr = (t - p0) / (p1 - p0) if p1 > p0 else 0
+                    px[x, y] = tuple(int(c0[k] + (c1[k] - c0[k]) * fr) for k in range(3)); break
+            else:
+                px[x, y] = stops[-1][1]
+    return g.resize((W, H), Image.BILINEAR)
+
+def make_thumbnail(topic, theme, section, archetype, tagline, out):
+    """1280x720 branded Essay thumbnail (locked design): claret gradient, gold left bar,
+    signature dot grid, THE ESSAY PAPER over UPSC CSE, topic hero, theme + section pill,
+    approach line, a gold separator and a per-episode tagline."""
+    W, H = 1280, 720
+    GOLD = (184, 134, 11); DEEP = (46, 17, 22); WHITE = (255, 255, 255)
+    SUB = (233, 217, 197); DOT = (156, 91, 102)
+    img = _grad(W, H, [(0.0, (122, 45, 58)), (0.52, (94, 34, 44)), (1.0, (46, 17, 22))])
+    d = ImageDraw.Draw(img)
+    d.rectangle([0, 0, 24, H], fill=GOLD)
+    dd, gap = 12, 22; gw = 4 * dd + 3 * gap; x0 = W - 80 - gw; y0 = 68
+    for r in range(4):
+        for c in range(4):
+            x = x0 + c * (dd + gap); y = y0 + r * (dd + gap)
+            d.ellipse([x, y, x + dd, y + dd], fill=DOT)
+    d.text((88, 50), "THE ESSAY PAPER", font=font(True, 44), fill=GOLD)
+    d.text((90, 112), "UPSC CIVIL SERVICES EXAMINATION", font=font(False, 25), fill=SUB)
+    d.rectangle([90, 162, 390, 166], fill=GOLD)
+    size = 80
+    while size > 46:
+        tf = font(True, size); lines = wrap(d, topic, tf, W - 88 - 104)
+        if len(lines) <= 2:
+            break
+        size -= 4
+    hy = 200; lh = int(size * 1.06)
+    for i, ln in enumerate(lines):
+        d.text((88, hy + i * lh), ln, font=tf, fill=WHITE)
+    my = hy + len(lines) * lh + 40          # generous gap so the theme never touches the hero
+    thf = font(True, 46)
+    d.text((88, my), theme, font=thf, fill=GOLD)
+    if section:
+        px_ = 88 + d.textlength(theme, font=thf) + 24
+        pf = font(True, 26); ptxt = section.upper(); tw = d.textlength(ptxt, font=pf)
+        d.rounded_rectangle([px_, my + 4, px_ + tw + 40, my + 52], radius=24, fill=GOLD)
+        d.text((px_ + 20, my + 10), ptxt, font=pf, fill=DEEP)
+    if archetype:
+        d.text((90, my + 62), "Approach:  " + archetype, font=font(False, 30), fill=SUB)
+    d.rectangle([88, H - 104, 548, H - 100], fill=GOLD)
+    d.text((88, H - 72), tagline, font=font(True, 40), fill=GOLD)
+    img.save(out); return out
+
 def main():
     args = sys.argv[1:]
     slides_only = "--slides-only" in args
@@ -432,6 +489,46 @@ def main():
         png = os.path.join(sdir, f"slide_{sid:02d}.png")
         render_slide(sl, ctx, png)
     print(f"Slides written to {sdir}")
+
+    # branded thumbnail from the agent's "thumbnail" block, with fallbacks to slide data.
+    # The bottom tagline varies every episode: agent-authored if present, else rotated
+    # from this pool by issue number (same intent - write to score higher - fresh wording).
+    TAGLINES = [
+        "Write the essay that lifts your rank.",
+        "Craft the essay that tops the paper.",
+        "Build the essay that earns the marks.",
+        "Turn ideas into a top-scoring essay.",
+        "Master the paper that decides the rank.",
+        "From a blank page to a winning essay.",
+        "The essay habit that separates ranks.",
+        "Structure, substance, score - every morning.",
+        "Write sharper. Argue better. Score higher.",
+        "The daily rep for a top-band essay.",
+        "Make the Essay paper your edge.",
+        "Practice the essay that beats the cutoff.",
+        "Decode, build, and score the essay.",
+        "The compulsory paper, finally decoded.",
+        "Score more where every mark counts.",
+        "One essay a day toward the rank.",
+    ]
+    tb = data.get("thumbnail", {}) or {}
+    def _first(k):
+        for s in slides:
+            if s.get(k):
+                return s[k]
+        return ""
+    try:
+        _ti = int(re.sub(r"\D", "", str(issue)) or "0")
+    except Exception:
+        _ti = 0
+    make_thumbnail(
+        tb.get("topic") or data.get("thumbnail_text") or (slides[1]["heading"] if len(slides) > 1 else data.get("video_title", "")),
+        tb.get("theme") or _first("concept"),
+        tb.get("section") or "",
+        tb.get("archetype") or "",
+        tb.get("tagline") or TAGLINES[_ti % len(TAGLINES)],
+        os.path.join(base, "thumb.png"))
+    print("Thumbnail written to", os.path.join(base, "thumb.png"))
 
     if slides_only:
         print("--slides-only set. Stopping after slide images.")
