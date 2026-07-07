@@ -96,14 +96,26 @@ jobs:
               elif isinstance(x,list):
                   for v in x: walk(v)
           walk(data)
-          m = re.search(r"VIDEO_SCRIPT_JSON_BEGIN===(.*?)===VIDEO_SCRIPT_JSON_END", "\n".join(chunks), re.S)
-          if not m: raise SystemExit("No video-script sentinel in agent output")
-          raw = m.group(1).strip()
-          try:
-              obj = json.loads(raw, strict=False)
-          except json.JSONDecodeError:
-              raw = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", raw)
-              obj = json.loads(raw, strict=False)
+          # Multiple sentinel spans can appear: the agent echoes its own instructions
+          # (which contain the sentinel words) with an EMPTY body. Never trust the first
+          # match. Take the LAST span that is non-empty AND parses to a dict with issue_no.
+          matches = re.findall(r"VIDEO_SCRIPT_JSON_BEGIN===(.*?)===VIDEO_SCRIPT_JSON_END", "\n".join(chunks), re.S)
+          obj = None
+          for raw in reversed(matches):
+              raw = raw.strip()
+              if not raw:
+                  continue
+              cleaned = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", raw)
+              try:
+                  cand = json.loads(cleaned, strict=False)
+              except json.JSONDecodeError:
+                  continue
+              if isinstance(cand, dict) and cand.get("issue_no"):
+                  obj = cand
+                  break
+          if obj is None:
+              raise SystemExit(f"No valid video-script JSON among {len(matches)} sentinel span(s). "
+                               "Agent output may be incomplete; check the Poll step / agent run.")
           json.dump(obj, open("video_script.json","w"), ensure_ascii=False, indent=2)
           print("Extracted", obj.get("issue_no"), "mode", obj.get("mode"))
           PY
