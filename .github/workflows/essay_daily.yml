@@ -19,6 +19,8 @@ on:
         description: "force mode (brief|video); blank = auto by weekday"
         required: false
         default: ""
+permissions:
+  contents: write        # the heartbeat commit that keeps the schedule alive
 jobs:
   run_essay_sentinel:
     runs-on: ubuntu-latest
@@ -83,42 +85,25 @@ jobs:
           done
 
       - name: Extract video script JSON
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        # One-shot extraction made any malformed reply fatal for the whole day, which is
+        # what happened on 3, 5 and 6 September. The extractor now hands the reason back to
+        # the same session and lets the agent correct itself, up to twice, as the GS desk
+        # has done since 21 September.
+        run: python3 ops/extract.py "${{ steps.create_session.outputs.SESSION_ID }}" video_script.json
+
+      - name: Heartbeat, so the schedule is never disabled again
+        # GitHub disables a repository's scheduled workflows after 60 days with no commits.
+        # The last commit here was 7 July, so both workflows were switched off on 6
+        # September and the Essay desk went silent without anything failing. A commit on
+        # every run keeps the clock from ever reaching sixty.
         run: |
-          SID="${{ steps.create_session.outputs.SESSION_ID }}"
-          curl -s "https://api.anthropic.com/v1/sessions/$SID/events" -H "x-api-key: ${{ secrets.ANTHROPIC_API_KEY }}" -H "anthropic-version: 2023-06-01" -H "anthropic-beta: managed-agents-2026-04-01" > events.json
-          python3 - << 'PY'
-          import json, re
-          data = json.load(open("events.json")); chunks=[]
-          def walk(x):
-              if isinstance(x,str): chunks.append(x)
-              elif isinstance(x,dict):
-                  for v in x.values(): walk(v)
-              elif isinstance(x,list):
-                  for v in x: walk(v)
-          walk(data)
-          # Multiple sentinel spans can appear: the agent echoes its own instructions
-          # (which contain the sentinel words) with an EMPTY body. Never trust the first
-          # match. Take the LAST span that is non-empty AND parses to a dict with issue_no.
-          matches = re.findall(r"VIDEO_SCRIPT_JSON_BEGIN===(.*?)===VIDEO_SCRIPT_JSON_END", "\n".join(chunks), re.S)
-          obj = None
-          for raw in reversed(matches):
-              raw = raw.strip()
-              if not raw:
-                  continue
-              cleaned = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", raw)
-              try:
-                  cand = json.loads(cleaned, strict=False)
-              except json.JSONDecodeError:
-                  continue
-              if isinstance(cand, dict) and cand.get("issue_no"):
-                  obj = cand
-                  break
-          if obj is None:
-              raise SystemExit(f"No valid video-script JSON among {len(matches)} sentinel span(s). "
-                               "Agent output may be incomplete; check the Poll step / agent run.")
-          json.dump(obj, open("video_script.json","w"), ensure_ascii=False, indent=2)
-          print("Extracted", obj.get("issue_no"), "mode", obj.get("mode"))
-          PY
+          date -u +%FT%TZ > .last_run
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .last_run
+          git diff --cached --quiet || { git commit -m "Ran $(date -u +%F)"; git push; }
 
       - name: Render video
         env:
