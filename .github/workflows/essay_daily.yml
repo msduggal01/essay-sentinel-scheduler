@@ -93,6 +93,16 @@ jobs:
         # has done since 21 September.
         run: python3 ops/extract.py "${{ steps.create_session.outputs.SESSION_ID }}" video_script.json
 
+      - name: Humanise the narration
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        # The agent writes correct essays in a recognisably generated voice. This rewrites
+        # only the spoken narration, under guardrails checked in code: every timing cue must
+        # still be spoken, every number preserved, no dashes, length held. A slide that fails
+        # any check keeps its original narration, so this can improve the voice and cannot
+        # cost the day's video.
+        run: python3 humanize.py video_script.json --diff || echo "humanising skipped; the original narration stands"
+
       - name: Heartbeat, so the schedule is never disabled again
         # GitHub disables a repository's scheduled workflows after 60 days with no commits.
         # The last commit here was 7 July, so both workflows were switched off on 6
