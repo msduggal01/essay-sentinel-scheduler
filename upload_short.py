@@ -108,6 +108,8 @@ def main():
                          "stagger the day's Shorts.")
     ap.add_argument("--playlist", default=SHORTS_PLAYLIST,
                     help="playlist to file the Short under (Essay reuse passes its own)")
+    ap.add_argument("--crosspost", action="store_true",
+                    help="after YouTube, also post it as an Instagram and Facebook Reel (meta_publish.py)")
     ap.add_argument("--no-playlist", action="store_true",
                     help="skip adding the Short to the Shorts playlist")
     args = ap.parse_args()
@@ -175,6 +177,12 @@ def main():
 
         print("URL: https://youtu.be/" + vid)
         print("Studio: https://studio.youtube.com/video/" + vid + "/edit")
+        if args.crosspost:
+            # its own process, best-effort: Instagram or Facebook can never undo the YouTube upload
+            import subprocess
+            mp = subprocess.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), "meta_publish.py"),
+                                 "--video", args.video, "--meta", args.meta], capture_output=True, text=True)
+            print((mp.stdout + mp.stderr).strip())
     except Exception as ex:
         # best-effort: never break the daily run because of the Short
         print("Short upload failed (non-blocking):", str(ex))

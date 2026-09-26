@@ -479,6 +479,7 @@ def main():
 
 
     built = uploaded = 0
+    crossposted = False
     for i, (stype, voiced, source) in enumerate(lineup):
         ist = times[i]
         style = ms.STYLES[(int(data["issue_no"]) + i) % len(ms.STYLES)]
@@ -534,8 +535,15 @@ def main():
             up += ["--publish-at", pub]
         else:
             up += ["--privacy", "public"]
+        # one Reel a day per desk on the shared Instagram and Facebook: the day's first Short
+        if not crossposted:
+            up += ["--crosspost"]
         ru = subprocess.run(up, capture_output=True, text=True)
         ok = ru.returncode == 0 and "URL:" in ru.stdout
+        for ln in ru.stdout.splitlines():
+            if ln.startswith("meta:"): print("     " + ln)
+        if ok and not crossposted:
+            crossposted = True
         print(f"     upload {'scheduled ' + pub if pub else 'public now'}: "
               f"{'ok' if ok else 'see log'}")
         if ok:
