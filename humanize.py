@@ -16,6 +16,13 @@ whole script, under guardrails checked in code, slide by slide:
   - every number in the original is still there (dates, marks, counts, Act years)
   - no dashes; length stays within 70 to 135 percent of the original
   - a cold open still begins with its headline sentence
+  - the desk's words hold: the essay is never a "script" and the reader never a
+    "candidate" (a rewrite that says either is rejected; "student" is reported)
+
+The intro and the outro are never sent at all. The opening (the greeting, the motivation,
+why today's topic helps the aspirant's preparation) and the closing are the desk's own voice
+and the owner wants them spoken exactly as written; on 27 September the rewrite turned
+"Keep decoding, keep structuring, and I will see you tomorrow" into a shorter goodbye.
 
 A slide that fails any check keeps its original narration. If the rewritten script
 validates worse than the original, the whole rewrite is dropped. It can make the voice
@@ -30,15 +37,17 @@ except ImportError:                        # other desks have their own envelope
 
 MODEL = os.environ.get("HUMANIZE_MODEL", "claude-sonnet-5")
 
-VOICE = """You rewrite the spoken narration of a UPSC current-affairs video so that it sounds like an
-experienced teacher talking to one serious student across a desk. The facts are already right.
-Your only job is the voice.
+VOICE = """You rewrite the spoken narration of a UPSC Essay paper masterclass video (how to decode a
+topic and write the essay on it) so that it sounds like an experienced teacher talking to one
+serious aspirant across a desk. The facts are already right. Your only job is the voice.
 
 How the teacher sounds:
 - Full, connected sentences with ordinary verbs. Some short, most medium, the odd long one.
 - Plain words. Contractions are fine (it's, hasn't, you'll). Calm, never selling.
 - Uses a colon or a full stop where a list begins, never a chain of commas.
-- Talks about the question and the answer, not about "moves", "levers" or "dimensions".
+- Talks about the topic and the essay, not about "moves" or "levers".
+- The written piece is always an "essay", never a "script" or an "answer"; the person writing it
+  is an "aspirant", never a "student" or a "candidate".
 
 Never write these (they are what makes it sound generated):
 - Triads and rhythmic lists used for effect: "one word, three legal lives, one still open",
@@ -52,11 +61,11 @@ Never write these (they are what makes it sound generated):
 - Em dashes, en dashes, double hyphens, emojis, exclamation marks.
 - Sentences that start with a bare verb and no subject ("Named the case. Corrected the error.").
   Give every sentence a subject. Do not keep the original's sentence shapes; say it the way you
-  would say it aloud to a student.
+  would say it aloud to an aspirant.
 
 Before and after (a different topic on purpose; never reuse these sentences):
-BEFORE: "Three dimensions carry the answer, the mandate, the transmission lag, and the credibility gap."
-AFTER:  "A good answer covers three things: what the RBI is legally required to target, why rate cuts take months to reach borrowers, and why markets doubted the signal this time."
+BEFORE: "Three dimensions carry the essay, the mandate, the transmission lag, and the credibility gap."
+AFTER:  "A good essay covers three things: what the RBI is legally required to target, why rate cuts take months to reach borrowers, and why markets doubted the signal this time."
 BEFORE: "Walk the branches of the 1934 Act, then the 2016 amendment brought in the target, then the MPC arrived, and now the band is under review. One mandate, three lives, one still open."
 AFTER:  "Follow the branches from the 1934 Act. The 2016 amendment brought in the inflation target, the Monetary Policy Committee followed, and the band itself is now under review."
 
@@ -95,6 +104,13 @@ def _set(obj, path, value):
             cur[key] = value
         else:
             cur = cur[key]
+
+
+# The desk's vocabulary, checked in code as well as asked for in the prompt: the essay is
+# not a "script" and the aspirant is not a "candidate". "student" is only reported.
+BANNED = re.compile(r"\b(scripts?|candidates?)\b", re.I)
+WARN = re.compile(r"\bstudents?\b", re.I)
+EMOJI = re.compile("[\U0001F000-\U0001FAFF\u2600-\u27BF\uFE0F]")
 
 
 def _numbers(t):
@@ -150,6 +166,8 @@ def check(slide, new, cues):
         elif not 1 <= len(c.split()) <= 16: why.append(f"cue {path} is {len(c.split())} words")
     if _numbers(old) != _numbers(new): why.append(f"numbers changed {_numbers(old)} -> {_numbers(new)}")
     if re.search(r"[\u2014\u2013]|--", new): why.append("dash")
+    if EMOJI.search(new): why.append("emoji")
+    for w in BANNED.findall(new): why.append(f"says {w.lower()!r}")
     r = len(new.split()) / max(1, len(old.split()))
     if not 0.70 <= r <= 1.35: why.append(f"length ratio {r:.2f}")
     if slide.get("layout") == "cold_open":
@@ -159,10 +177,13 @@ def check(slide, new, cues):
 
 
 BATCH = 8
+# The slides the rewrite never touches: the desk's own opening and closing, spoken as written.
+KEEP_VERBATIM = ("intro", "outro")
 
 
 def humanize(d, rewrite=_call):
-    slides = [s for s in (d.get("slides") or []) if s.get("narration")]
+    slides = [s for s in (d.get("slides") or []) if s.get("narration")
+              and s.get("type") not in KEEP_VERBATIM and s.get("layout") not in KEEP_VERBATIM]
     got = {}
     for i in range(0, len(slides), BATCH):
         payload = [{"id": s["id"], "layout": s.get("layout"), "narration": s["narration"], "cues": _cues(s),
@@ -179,6 +200,8 @@ def humanize(d, rewrite=_call):
         why = check(s, new, x.get("cues"))
         if why:
             kept += 1; print(f"humanize: slide {s['id']} kept original ({'; '.join(why)})"); continue
+        if WARN.search(new) and not WARN.search(s.get("narration", "")):
+            print(f"humanize: slide {s['id']} says 'student' (the desk says 'aspirant'); taken, but check it")
         s["narration"] = new
         for path, c in (x.get("cues") or {}).items():
             if path in _cues(s): _set(s["content"], path, c)
