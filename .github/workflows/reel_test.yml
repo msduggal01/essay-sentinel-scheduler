@@ -12,6 +12,9 @@ on:
       session_id:
         description: "Or: an agent session id to pull the script from (sesn_...)"
         default: ""
+      props_run_id:
+        description: "Or: a reel-test run whose Reel lines to reuse (no new lines are written, only the voice and the render)"
+        default: ""
       publish:
         description: "Also upload it (YouTube, Instagram, Facebook)"
         type: boolean
@@ -40,7 +43,13 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           RUN_ID: ${{ inputs.run_id }}
           SESSION_ID: ${{ inputs.session_id }}
+          PROPS_RUN_ID: ${{ inputs.props_run_id }}
         run: |
+          if [ -n "$PROPS_RUN_ID" ]; then
+            gh run download "$PROPS_RUN_ID" -n reel-test -D prev -R "${{ github.repository }}"
+            cp prev/reel_props.json reel_props.json
+            echo "reusing the Reel lines of run $PROPS_RUN_ID"; exit 0
+          fi
           if [ -n "$SESSION_ID" ]; then
             python3 ops/extract.py "$SESSION_ID" video_script.json
           else
@@ -57,7 +66,7 @@ jobs:
           VOICE_ID: ${{ secrets.ESSAY_VOICE_ID || 'gad8DmXGyu7hwftX9JqI' }}
         run: |
           (cd remotion && npm ci --no-audit --no-fund --silent)
-          python3 ops/reel_props.py essay video_script.json reel_props.json
+          [ -f reel_props.json ] || python3 ops/reel_props.py essay video_script.json reel_props.json
           python3 ops/reel_cut.py reel_props.json reel.mp4 reel_meta.txt
           cat reel_meta.txt
       - uses: actions/upload-artifact@v4
