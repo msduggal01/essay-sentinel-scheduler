@@ -27,7 +27,6 @@ import os
 import sys
 import re
 import json
-import random
 import subprocess
 
 from PIL import Image, ImageDraw, ImageFont
@@ -195,7 +194,9 @@ def render_slide(slide, ctx, out_path, reveal=None):
     else:
         # light slide: top brand bar
         d.rectangle([0, 0, W, 96], fill=STEEL)
-        d.text((MARGIN, 30), f"The Essay Desk   |   Issue {ctx['issue']}   |   {ctx['date']}",
+        # the video's own counter: the agent numbers every video with the EPISODE counter
+        # and says "episode seventy one" in the intro, so the header says Episode too
+        d.text((MARGIN, 30), f"The Essay Desk   |   Episode {ctx['episode']}   |   {ctx['date']}",
                font=font(False, 30), fill=WHITE)
 
         badge = TYPE_BADGE.get(slide["type"])
@@ -236,7 +237,29 @@ def render_slide(slide, ctx, out_path, reveal=None):
 def normalize_tts(text):
     # numeric ranges like 40-60 -> "40 to 60" (keeps word hyphens intact)
     text = re.sub(r'(\d)\s*-\s*(\d)', r'\1 to \2', text)
+    # the desk's address is spoken as an address: the agent writes "team dot upscdesk dot
+    # com" or "team@upscdesk.com", and both came out as "team dot upscdesk dot com"
+    text = re.sub(r"\b([a-z]+)@upscdesk\.com\b", r"\1 at upscdesk dot com", text, flags=re.I)
+    text = re.sub(r"\bteam\s+dot\s+upscdesk\s+dot\s+com\b", "team at upscdesk dot com", text, flags=re.I)
     return text
+
+
+# The last slide always ends by pointing to the description, on screen and in the voice. It is
+# added here, after the humaniser and just before the voice, so no rewrite can drop it.
+LINKS_SPOKEN = ("The links to subscribe and to join our Telegram channel are in the description "
+                "below; tap them to join.")
+LINKS_ON_SCREEN = "Subscribe and Telegram links: in the description below"
+
+
+def add_links_line(slides):
+    """the closing line on the outro (or, failing that, the last slide); safe to run twice"""
+    last = next((s for s in reversed(slides) if s.get("type") == "outro"), slides[-1] if slides else None)
+    if not last:
+        return
+    if LINKS_SPOKEN not in last.get("narration", ""):
+        last["narration"] = (last.get("narration", "").rstrip() + " " + LINKS_SPOKEN).strip()
+    if LINKS_ON_SCREEN not in (last.get("bullets") or []):
+        last["bullets"] = [b for b in (last.get("bullets") or []) if b] + [LINKS_ON_SCREEN]
 
 # ----------------------------------------------------------------------------
 # ElevenLabs TTS
@@ -473,8 +496,13 @@ def main():
 
     data = json.load(open(json_path))
     issue = data["issue_no"]
-    ctx = {"issue": issue, "date": data["date"]}
+    try:
+        episode = str(int(re.sub(r"\D", "", str(issue)) or "0"))
+    except ValueError:
+        episode = str(issue)
+    ctx = {"issue": issue, "episode": episode, "date": data["date"]}
     slides = data["slides"]
+    add_links_line(slides)
 
     base = os.path.join("build", f"issue_{issue}")
     sdir = os.path.join(base, "slides")
@@ -501,7 +529,7 @@ def main():
         "Master the paper that decides the rank.",
         "From a blank page to a winning essay.",
         "The essay habit that separates ranks.",
-        "Structure, substance, score - every morning.",
+        "Structure, substance, score, every morning.",
         "Write sharper. Argue better. Score higher.",
         "The daily rep for a top-band essay.",
         "Make the Essay paper your edge.",
@@ -627,7 +655,8 @@ def main():
     # hashtags for the DESCRIPTION text (YouTube shows the first 3 above the title,
     # and they are clickable/searchable - unlike the low-value tags field). Evergreen
     # brand tags first, then this episode's own tags. Cap at 12 (YouTube ignores >15).
-    EVERGREEN = ["UPSC", "UPSCEssay", "UPSCMains2026", "EssayWriting", "CivilServices", "IAS"]
+    # no year in the evergreen tags: "UPSCMains2026" went stale the moment that Mains was sat
+    EVERGREEN = ["UPSC", "UPSCEssay", "UPSCMains", "EssayWriting", "CivilServices", "IAS"]
     def _camel(t):
         return re.sub(r"[^0-9A-Za-z ]", "", str(t)).title().replace(" ", "")
     seen, hlist = set(), []
@@ -646,15 +675,16 @@ def main():
     lines.append("")
     lines.append(hashtags)
     lines.append("")
+    # the video's last line sends viewers here, so both links are full https addresses (an
+    # empty ESSAY_SUBSCRIBE_URL secret used to leave the subscribe line blank)
+    subscribe = (os.environ.get("ESSAY_SUBSCRIBE_URL") or "").strip() or "https://subscribe.upscdesk.com/essay/"
+    if not subscribe.startswith("http"):
+        subscribe = "https://" + subscribe.lstrip("/")
     lines.append("Join our Telegram channel for the daily masterclass and the latest updates:")
     lines.append("https://t.me/upscdesk_essay   (@upscdesk_essay)")
     lines.append("")
-    lines.append("Subscribe to the full daily Essay brief - two model essays with the examiner's commentary, three mornings a week:")
-    lines.append(os.environ.get("ESSAY_SUBSCRIBE_URL", "https://subscribe.upscdesk.com/essay/"))
-    # AI-narration disclosure: NOT on every video - show it on roughly 1 in 10 videos only.
-    if random.random() < 0.1:
-        lines.append("")
-        lines.append("Narration is AI-generated. Content is researched and edited by UPSC Desk.")
+    lines.append("Subscribe to the full Essay brief, two model essays with the examiner's commentary, three mornings a week:")
+    lines.append(subscribe)
     lines.append("")
     lines.append("Chapters:")
     lines.append(f"{fmt_ts(0)} Introduction")
