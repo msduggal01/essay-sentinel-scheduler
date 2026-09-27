@@ -19,6 +19,25 @@ H = {"x-api-key": os.environ["ANTHROPIC_API_KEY"], "anthropic-version": "2023-06
      "anthropic-beta": "managed-agents-2026-04-01", "Content-Type": "application/json"}
 
 
+# key-like values and private endpoints that must never leave the runner
+SECRET_PATTERNS = [
+    (r"re_[A-Za-z0-9_]{16,}", "re_[MASKED]"),                          # Resend
+    (r"sk-[A-Za-z0-9_\-]{20,}", "sk-[MASKED]"),                        # Anthropic, OpenAI
+    (r"(?:ghp|gho|ghs|ghu)_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}", "gh_[MASKED]"),
+    (r"EAA[A-Za-z0-9]{40,}", "EAA[MASKED]"),                            # Meta
+    (r"AIza[0-9A-Za-z_\-]{30,}", "AIza[MASKED]"),                      # Google API key
+    (r"xox[abprs]-[A-Za-z0-9\-]{10,}", "xox-[MASKED]"),                # Slack
+    (r"https://script\.google\.com/macros/s/[A-Za-z0-9_\-]+", "https://script.google.com/macros/s/[MASKED]"),
+    (r"(?i)((?:api[_ ]?key|token|secret|password)[\"']?\s*[=:]\s*\\?[\"']?)([A-Za-z0-9_\-\.]{16,})", r"\1[MASKED]"),
+]
+
+
+def redact(text):
+    for p, r in SECRET_PATTERNS:
+        text = re.sub(p, r, text)
+    return text
+
+
 def call(method, url, body=None):
     req = urllib.request.Request(url, headers=H, method=method, data=json.dumps(body).encode() if body is not None else None)
     try:
@@ -34,7 +53,12 @@ def main():
     # identifier, not a credential, so it can be passed in plainly
     aid = os.environ.get("AGENT_ID") or os.environ["ESSAY_AGENT_ID"]
     agent = call("GET", API + aid)
-    json.dump(agent, open("agent_backup.json", "w"), ensure_ascii=False, indent=1)
+    # the backup is uploaded as a workflow artifact, so it must never carry the prompt's live
+    # keys or private URLs: they are masked here, and nothing is written if any survive
+    safe = redact(json.dumps(agent, ensure_ascii=False, indent=1))
+    if any(re.search(p, safe) for p, _ in SECRET_PATTERNS):
+        raise SystemExit("backup still carries a key-like value after masking; not written")
+    open("agent_backup.json", "w").write(safe)
     sysp = agent.get("system") or ""
     print(f"live agent version {agent.get('version')}, system prompt {len(sysp)} chars; backup written")
     body = open(patch, encoding="utf-8").read().strip()
