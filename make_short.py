@@ -123,6 +123,8 @@ BRAND_COPY = {
         wordmark="THE SOCIOLOGY DESK", tagline="UPSC SOCIOLOGY OPTIONAL",
         handle="@upscdesk_sociology", subscribe_env="SOC_SUBSCRIBE_URL",
         subscribe_default="https://subscribe.upscdesk.com/sociology/", voice_env=None,
+        cover_kicker="IS THIS CURRENT AFFAIRS?", cover_word="IT'S SOCIOLOGY.",
+        cover_sub="Decoded for UPSC Mains in 30 seconds", footer="full answer below",
         hook_l1="It is not current affairs.", hook_l2="It is SOCIOLOGY.",
         payoff_l1="See sociology everywhere.", payoff_l2="That is how a 14 becomes a 19.",
         concept_label="SOCIOLOGY",
@@ -139,6 +141,8 @@ BRAND_COPY = {
         wordmark="THE ESSAY DESK", tagline="UPSC ESSAY, DECODED",
         handle="@upscdesk_essay", subscribe_env="ESSAY_SUBSCRIBE_URL",
         subscribe_default="https://subscribe.upscdesk.com/essay/", voice_env="ESSAY_VOICE_ID",
+        cover_kicker="IS THIS JUST NEWS?", cover_word="IT'S YOUR ESSAY.",
+        cover_sub="Decoded for the UPSC Essay paper in 30 seconds", footer="full essay below",
         hook_l1="It is not just a topic.", hook_l2="It is a full ESSAY.",
         payoff_l1="Decode. Argue one thesis. Build.", payoff_l2="That is how you cross 75.",
         concept_label="ESSAY",
@@ -167,7 +171,7 @@ def set_desk(desk):
     b = BRAND_COPY.get(desk, BRAND_COPY["sociology"])
     BRAND = b
     CHANNEL_HANDLE = b["handle"]
-    SUBSCRIBE = os.environ.get(b["subscribe_env"], b["subscribe_default"])
+    SUBSCRIBE = os.environ.get(b["subscribe_env"]) or b["subscribe_default"]
     if b["voice_env"]:
         VOICE_ID = os.environ.get(b["voice_env"], VOICE_ID)
 
@@ -448,16 +452,16 @@ def make_cover(script, out_path):
     """A strong static thumbnail/cover (not a mid-karaoke frame)."""
     img, d = scene_base(script.get("variant", 0), 0.0)
     cx = W / 2
-    outline_pill_center(d, "IS THIS CURRENT AFFAIRS?", 280, 34, AMBER)
+    outline_pill_center(d, BRAND["cover_kicker"], 280, 34, AMBER)
     center_text(d, "NO.", font(True, 160), 380, WHITE)
-    center_text(d, "IT'S SOCIOLOGY.", font(True, 76), 580, AMBER)
+    center_text(d, BRAND["cover_word"], font(True, 76), 580, AMBER)
     y = 820
     for ev in script.get("events", [])[:2]:
         for ln in wrap(d, "•  " + ev.get("event", ""), font(True, 50), CONTENT_W)[:2]:
             center_text(d, ln, font(True, 50), y, ICE)
             y += 64
         y += 18
-    center_text(d, "Decoded for UPSC Mains in 30 seconds", font(False, 40), H - 360, LIGHTST)
+    center_text(d, BRAND["cover_sub"], font(False, 40), H - 360, LIGHTST)
     center_text(d, CHANNEL_HANDLE, font(True, 50), H - 150, WHITE)
     img.save(out_path, "PNG")
 
@@ -472,7 +476,7 @@ def render_word_frame(scene, words_lines, line_index, current_gi, frac, out_path
     elif stype == "payoff":
         payoff_chrome(d, scene["variant"])
     karaoke_band(d, words_lines, line_index, current_gi, cy=760 if stype == "event" else 720)
-    center_text(d, CHANNEL_HANDLE + "   ·   full answer below",
+    center_text(d, CHANNEL_HANDLE + "   ·   " + BRAND["footer"],
                 font(True, 32), H - 70, LIGHTST)
     img.save(out_path, "PNG")
 

@@ -1,0 +1,36 @@
+# Re-render and set the cover on Essay Shorts already published (for Shorts that went out
+# with another desk's cover). Manual only; a dry run unless apply is ticked.
+name: Fix Essay Short covers
+on:
+  workflow_dispatch:
+    inputs:
+      since:
+        description: "First publish date to fix (YYYY-MM-DD, UTC)"
+        required: true
+        type: string
+      apply:
+        description: "Set the covers on YouTube (otherwise list only)"
+        default: false
+        type: boolean
+permissions:
+  contents: read
+jobs:
+  covers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: sudo apt-get install -y -qq fonts-liberation > /dev/null && pip install -q -r requirements.txt
+      - env:
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+        run: python3 ops/fix_short_covers.py --since "${{ inputs.since }}" ${{ inputs.apply && '--apply' || '' }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: covers
+          path: covers/
+          retention-days: 7
