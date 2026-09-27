@@ -2,8 +2,8 @@
 """mount_kit.py: hand the brief kit to a managed-agent session as mounted files.
 
 The agents' sandboxes cannot reach GitHub, so the workflow that starts the session (which can)
-uploads the kit through the Files API and attaches it as session resources, mounted read-only
-at /workspace/brief/. Run on the GitHub runner, with ANTHROPIC_API_KEY set:
+uploads the kit through the Files API and attaches it as session resources, which the sandbox
+shows read-only at /mnt/session/uploads/brief/. Run on the GitHub runner, with ANTHROPIC_API_KEY set:
 
     python3 mount_kit.py resources > kit_resources.json   # upload; print the resources list
     ... create the session with "resources": <that list> ...
@@ -17,7 +17,7 @@ import json, os, sys, urllib.request, uuid
 
 RAW = "https://raw.githubusercontent.com/msduggal01/essay-sentinel-scheduler/main/brief/"
 FILES = ["briefkit.py", "brief_build.py", "SCHEMA.md", "examples/sociology.json", "examples/essay.json"]
-MOUNT = "/workspace/brief/"
+MOUNT = "/brief/"      # the sandbox mounts session files under /mnt/session/uploads, so: /mnt/session/uploads/brief/
 IDS = ".kit_file_ids"
 API = "https://api.anthropic.com/v1/files"
 H = {"x-api-key": os.environ.get("ANTHROPIC_API_KEY", ""), "anthropic-version": "2023-06-01",
@@ -48,7 +48,7 @@ def resources():
         print("[]"); return
     open(IDS, "w").write("\n".join(ids))
     print(json.dumps(out))
-    print(f"mount_kit: {len(out)} kit files attached at {MOUNT}", file=sys.stderr)
+    print(f"mount_kit: {len(out)} kit files attached at /mnt/session/uploads{MOUNT}", file=sys.stderr)
 
 
 def cleanup():
