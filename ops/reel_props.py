@@ -15,7 +15,7 @@ code decides everything that is a rule, and checks every line before it is used:
              opening of three lines with notes; the three lines of an opening that works.
 
 A written answer is an answer (an essay on the Essay desk), never a script; the person
-writing it is an aspirant. No em or en dashes, no exclamation marks. A reply that breaks a
+writing it is an aspirant, never a candidate (a reply that says either is sent back). No em or en dashes, no exclamation marks. A reply that breaks a
 check is sent back with the reasons, four tries at most; after that the script exits 1 and
 the day falls back to the old Short.
 """
@@ -158,6 +158,8 @@ def clean_words(v, where, errs):
     elif isinstance(v, str):
         if re.search(r"[—–!]|--", v): errs.append(f"{where}: dash or exclamation mark")
         if re.search(r"\bscripts?\b", v, re.I): errs.append(f"{where}: says 'script'")
+        if re.search(r"\bcandidates?\b", v, re.I): errs.append(f"{where}: says 'candidate'; the writer is an aspirant")
+        if re.search(r"\bstudents?\b", v, re.I): print(f"reel_props: {where} says 'student' (the desk says 'aspirant'); kept")
 
 
 def cap(v, n, where, errs):
@@ -248,7 +250,7 @@ def main():
                 "cta_line": "Write this answer, then get it evaluated", "paper": p, **c}
     else:
         data = {"desk": "essay", "eyebrow": "UPSC Essay · 125 Marks", "hook2": "Could you write this essay?",
-                "cta_line": "Write this essay, then get it evaluated", **c}
+                "cta_line": "Write this essay, then get it evaluated", "badge": "ESSAY EVALUATION", **c}
     data["issue"] = issue
     json.dump({"data": data}, open(out, "w"), ensure_ascii=False, indent=1)
     print(f"reel_props: {desk} issue {issue}: " + (data.get("headline") or data.get("topic", "")))

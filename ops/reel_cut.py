@@ -9,11 +9,16 @@ goes to ElevenLabs (eleven_v3, /with-timestamps, the desk's voice from VOICE_ID)
 with ffmpeg (v3 ignores its speed setting), and each beat is the moment its cue phrase is
 spoken in the character alignment. Then Remotion renders the DeskShort composition.
 
-Env: ELEVENLABS_API_KEY, VOICE_ID (the desk's voice), REEL_TEMPO (default 1.40).
+Env: ELEVENLABS_API_KEY, VOICE_ID (the desk's voice), REEL_TEMPO (default 1.30).
+
+The tempo was 1.40 to keep the Reel under a minute; the owner found that too quick, and at
+1.30 the 27 September Reel runs about 62 seconds, well inside Instagram's 90 and YouTube
+Shorts' three minutes. Nothing else depends on the length: the composition takes its
+duration from "seconds" and every beat is scaled by the same TEMPO.
 """
 import base64, json, os, re, subprocess, sys, urllib.request
 
-TEMPO = float(os.environ.get("REEL_TEMPO", "1.40"))
+TEMPO = float(os.environ.get("REEL_TEMPO", "1.30"))
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REMOTION = os.path.join(HERE, "remotion")
 NUM = {7: "seven", 8: "eight", 9: "nine", 17: "seventeen", 18: "eighteen", 19: "nineteen", 20: "twenty"}
@@ -22,6 +27,9 @@ NUM = {7: "seven", 8: "eight", 9: "nine", 17: "seventeen", 18: "eighteen", 19: "
 def say(s):
     """what the voice should read for an on-screen line"""
     s = s.replace("·", ",").replace("&", "and").replace("%", " per cent")
+    # the desk's address spoken as an address, as in render_video.py
+    s = re.sub(r"\b([a-z]+)@upscdesk\.com\b", r"\1 at upscdesk dot com", s, flags=re.I)
+    s = re.sub(r"\bteam\s+dot\s+upscdesk\s+dot\s+com\b", "team at upscdesk dot com", s, flags=re.I)
     return re.sub(r"\s+", " ", s).strip()
 
 
