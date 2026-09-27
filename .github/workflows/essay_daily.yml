@@ -21,10 +21,21 @@ on:
         default: ""
 permissions:
   contents: write        # the heartbeat commit that keeps the schedule alive
+# One run at a time: a manual dispatch while the morning run is still going waits for it
+# instead of running alongside it and publishing the same day twice at the same moment.
+concurrency:
+  group: essay-daily
+  cancel-in-progress: false
+env:
+  UPSC_DESK: essay       # meta_publish.py words its fallback caption for the desk
 jobs:
   run_essay_sentinel:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # A brief day's session has taken twenty minutes, the render five; the poll below waits
+    # at most fifty, and the extractor's corrections up to twenty more.
+    timeout-minutes: 90
+    outputs:
+      has_script: ${{ steps.kept.outputs.has_script }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -64,12 +75,16 @@ jobs:
           curl -s -X POST "https://api.anthropic.com/v1/sessions/$SID/events" -H "x-api-key: ${{ secrets.ANTHROPIC_API_KEY }}" -H "anthropic-version: 2023-06-01" -H "anthropic-beta: managed-agents-2026-04-01" -H "Content-Type: application/json" -d "{\"events\":[{\"type\":\"user.message\",\"content\":[{\"type\":\"text\",\"text\":\"execute mode=$MODE\"}]}]}"
 
       - name: Poll until completion
+        # Until 27 September the loop simply ran out of tries and the run went on to extract
+        # from a session that was still working, which is how a resend could land in the
+        # middle of the day's steps. Now it waits up to fifty minutes and then stops the day
+        # with an error that says so.
         run: |
           SID="${{ steps.create_session.outputs.SESSION_ID }}"
-          MAX=80; I=0; LAST=0; STABLE=0; STARTED=false
+          LAST=0; STABLE=0; STARTED=false; DONE=false
+          DEADLINE=$(( $(date +%s) + 50*60 ))
           sleep 20
-          while [ $I -lt $MAX ]; do
-            I=$((I+1))
+          while [ "$(date +%s)" -lt "$DEADLINE" ]; do
             EVTS=$(curl -s "https://api.anthropic.com/v1/sessions/$SID/events" -H "x-api-key: ${{ secrets.ANTHROPIC_API_KEY }}" -H "anthropic-version: 2023-06-01" -H "anthropic-beta: managed-agents-2026-04-01")
             SESS=$(curl -s "https://api.anthropic.com/v1/sessions/$SID" -H "x-api-key: ${{ secrets.ANTHROPIC_API_KEY }}" -H "anthropic-version: 2023-06-01" -H "anthropic-beta: managed-agents-2026-04-01")
             COUNT=$(echo "$EVTS" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d.get('data',d.get('events',[]))))" 2>/dev/null || echo "0")
@@ -77,12 +92,16 @@ jobs:
             echo "Status: $STATUS | Events: $COUNT"
             if [ "$COUNT" -gt 0 ] && [ "$STARTED" = "false" ]; then STARTED=true; STABLE=0; fi
             if [ "$STARTED" = "true" ] && [ "$STATUS" = "idle" ]; then
-              if [ "$COUNT" -eq "$LAST" ]; then STABLE=$((STABLE+1)); [ $STABLE -ge 3 ] && { echo "Done. Events: $COUNT"; break; }; else STABLE=0; fi
+              if [ "$COUNT" -eq "$LAST" ]; then STABLE=$((STABLE+1)); [ $STABLE -ge 3 ] && { echo "Done. Events: $COUNT"; DONE=true; break; }; else STABLE=0; fi
             fi
             LAST=$COUNT
             { [ "$STATUS" = "error" ] || [ "$STATUS" = "failed" ]; } && { echo "Failed: $STATUS"; exit 1; }
             sleep 30
           done
+          if [ "$DONE" != "true" ]; then
+            echo "::error::The agent session $SID was still working after fifty minutes; nothing was extracted. Check the session before any rerun: it may already have emailed the brief."
+            exit 1
+          fi
 
       - name: Extract video script JSON
         env:
@@ -111,17 +130,32 @@ jobs:
           if-no-files-found: ignore
           retention-days: 30
 
+      - name: Tell the Reel job there is a script
+        id: kept
+        run: |
+          if [ -f video_script.json ]; then echo "has_script=true" >> "$GITHUB_OUTPUT"; fi
+
       - name: Heartbeat, so the schedule is never disabled again
         # GitHub disables a repository's scheduled workflows after 60 days with no commits.
         # The last commit here was 7 July, so both workflows were switched off on 6
         # September and the Essay desk went silent without anything failing. A commit on
-        # every run keeps the clock from ever reaching sixty.
+        # every run keeps the clock from ever reaching sixty. A push can be refused when
+        # something landed on main during the run, and that used to stop the whole day
+        # before the render; now it catches up and tries again, and if it still cannot, the
+        # day goes on with a warning (the next run's heartbeat will do).
         run: |
           date -u +%FT%TZ > .last_run
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add .last_run
-          git diff --cached --quiet || { git commit -m "Ran $(date -u +%F)"; git push; }
+          git diff --cached --quiet && exit 0
+          git commit -q -m "Ran $(date -u +%F)"
+          for i in 1 2 3; do
+            git pull --rebase -q && git push -q && { echo "heartbeat pushed"; exit 0; }
+            git rebase --abort 2>/dev/null || true
+            sleep $((10 * i))
+          done
+          echo "::warning::The heartbeat commit could not be pushed; the day goes on without it"
 
       - name: Render video
         env:
@@ -137,9 +171,15 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHANNEL: ${{ secrets.TELEGRAM_CHANNEL }}
           ESSAY_SUBSCRIBE_URL: ${{ secrets.ESSAY_SUBSCRIBE_URL }}
+        # The upload's output used to go straight into grep, so a failed upload left an empty
+        # URL, the step carried on, and Telegram was handed nothing. Now the output is kept
+        # in the log, a failure in the pipe fails the step, and no URL means no post.
         run: |
+          set -o pipefail
           ISSUE=$(python3 -c "import json;print(json.load(open('video_script.json'))['issue_no'])")
-          URL=$(python3 upload_youtube.py --video build/issue_$ISSUE/video_issue_$ISSUE.mp4 --meta build/issue_$ISSUE/youtube_meta.txt --thumbnail build/issue_$ISSUE/thumb.png --privacy public | grep -o 'https://youtu.be/[^ ]*' | head -1)
+          python3 upload_youtube.py --video build/issue_$ISSUE/video_issue_$ISSUE.mp4 --meta build/issue_$ISSUE/youtube_meta.txt --thumbnail build/issue_$ISSUE/thumb.png --privacy public 2>&1 | tee upload_youtube.log
+          URL=$(grep -o 'https://youtu.be/[^ ]*' upload_youtube.log | head -1 || true)
+          if [ -z "$URL" ]; then echo "::error::The YouTube upload gave no URL; nothing was posted to Telegram"; exit 1; fi
           echo "YouTube: $URL"
           python3 post_telegram.py --json video_script.json --youtube "$URL" --thumb build/issue_$ISSUE/thumb.png
 
@@ -147,9 +187,12 @@ jobs:
   # Its own job after the day's run, with its own time budget; best effort throughout. The
   # Reel goes to YouTube as a Short and to Instagram and Facebook as a Reel (--crosspost).
   # If it cannot be made or uploaded, the old Essay Short goes out in its place.
+  # It runs whenever the day's script exists, not only when the whole main job succeeded: a
+  # failed YouTube upload, a Telegram error or an unconfirmed brief email is no reason to
+  # lose the Reel too.
   reel:
     needs: run_essay_sentinel
-    if: ${{ always() && needs.run_essay_sentinel.result == 'success' }}
+    if: ${{ !cancelled() && needs.run_essay_sentinel.outputs.has_script == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -187,6 +230,13 @@ jobs:
           OUT=$(python3 upload_short.py --video reel.mp4 --meta reel_meta.txt --playlist "Essay Desk - Shorts" --privacy public --crosspost)
           echo "$OUT"
           echo "$OUT" | grep -q "URL:" || { echo "the Reel was not confirmed on YouTube"; exit 1; }
+      - name: Say so when the Reel did not go out
+        # continue-on-error keeps the job green, which hid every failed Reel; this puts it on
+        # the run's page as a warning
+        if: ${{ steps.reel.outcome == 'failure' }}
+        run: |
+          echo "::warning::The day's Reel failed (see 'The day's Reel'); the old Short goes out in its place"
+          echo "- The day's Reel failed; the old Short was tried in its place." >> "$GITHUB_STEP_SUMMARY"
       - name: Keep the Reel and its words
         if: always()
         uses: actions/upload-artifact@v4
@@ -200,6 +250,7 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
       - name: The old Short, only when the new Reel did not go out
+        id: oldshort
         if: ${{ steps.reel.outcome != 'success' }}
         continue-on-error: true
         env:
@@ -215,3 +266,8 @@ jobs:
           META_IG_USER_ID: ${{ secrets.META_IG_USER_ID }}
         run: |
           if [ -f video_script.json ]; then python3 build_daily_shorts.py video_script.json --desk essay --limit 1; fi
+      - name: Say so when the old Short failed too
+        if: ${{ steps.oldshort.outcome == 'failure' }}
+        run: |
+          echo "::warning::The old Short failed as well; no Short or Reel went out today"
+          echo "- The old Short failed as well: no Short or Reel today." >> "$GITHUB_STEP_SUMMARY"
