@@ -26,9 +26,9 @@ def cover_line(title, info):
     desc = ((info.get("items") or [{}])[0].get("snippet") or {}).get("description", "")
     i = desc.find(t)
     if t and i >= 0:
-        rest = re.split(r"[\n|]", desc[i:])[0].strip()
-        if len(rest) >= len(t):
-            t = rest
+        # only finish what the cut left off: stop at the first break after the title's end
+        ext = re.split(r"[\n|:(/]", desc[i + len(t):])[0]
+        t = (t + ext).strip().rstrip(",;")
     return t
 
 
