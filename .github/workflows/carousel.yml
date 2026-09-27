@@ -1,0 +1,177 @@
+# The day's Instagram and Facebook carousel, one a day across the shared UPSC Desk account.
+#
+# Every desk's repository has this same workflow; DESK below is the only difference. At 18:00
+# IST it decides whether today is this desk's day (IST weekday; ops/carousel_props.py holds the
+# rotation: GS Monday and Thursday, Sociology Tuesday and Friday, Essay Wednesday and Saturday,
+# Sunday's revision deck by ISO week number), takes the day's content from this repository's
+# own daily run artifacts, builds the slides' words and the caption from that content only,
+# renders one still per slide (remotion/src/DeskCarousel.tsx) and, on its day, posts them.
+#
+# Every day, its day or not, the day's revision facts go to carousel/archive/YYYY-MM-DD.json,
+# committed here (scheduled runs, and runs that publish), because Sunday's deck is built from
+# the week's files. The rendered slides and the caption are kept as an artifact on every run.
+#
+# Posting is off until the owner turns it on: a scheduled run posts only when the repository
+# variable CAROUSEL_LIVE is 'true'; a manual run posts only with publish ticked. A posted
+# carousel leaves a carousel-posted-<desk>-<date> artifact, and a re-run for the same day
+# posts only a leg that marker does not already record, so nothing is posted twice.
+#
+# Secrets: META_PAGE_TOKEN, META_PAGE_ID, META_IG_USER_ID (the same as the Reels).
+name: Carousel
+on:
+  schedule:
+    - cron: "30 12 * * *"   # 18:00 IST
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "The day, YYYY-MM-DD in IST (blank = today)"
+        default: ""
+        type: string
+      publish:
+        description: "Post to Instagram and Facebook (otherwise build, render and keep as an artifact)"
+        default: false
+        type: boolean
+      force_desk:
+        description: "Build this desk's carousel even when the date is not its day (type the desk: essay)"
+        default: ""
+        type: string
+      format:
+        description: "Force a format: A or C (blank = the rotation)"
+        default: ""
+        type: string
+      from_run:
+        description: "Take the content from this daily run id (blank = the day's own artifacts)"
+        default: ""
+        type: string
+permissions:
+  contents: write         # the archive commit
+  actions: read           # the daily run's artifacts, and the posted markers
+concurrency:
+  group: carousel
+  cancel-in-progress: false
+env:
+  DESK: essay
+jobs:
+  carousel:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: pip install -q pillow
+
+      - name: Is today this desk's day
+        id: day
+        env:
+          IN_DATE: ${{ inputs.date }}
+          IN_FORCE: ${{ inputs.force_desk }}
+          IN_FORMAT: ${{ inputs.format }}
+        run: |
+          D="$IN_DATE"; [ -n "$D" ] || D=$(TZ=Asia/Kolkata date +%F)
+          FORCE=""
+          case "$(echo "$IN_FORCE" | tr 'A-Z' 'a-z')" in "$DESK"|true|yes) FORCE="--force";; esac
+          OUT=$(python3 ops/carousel_props.py decide --desk "$DESK" --date "$D" $FORCE --format "$IN_FORMAT")
+          F=$(echo "$OUT" | python3 -c "import sys,json;print(json.load(sys.stdin)['format'])")
+          WHY=$(echo "$OUT" | python3 -c "import sys,json;print(json.load(sys.stdin)['reason'])")
+          PUBLISH=false
+          if [ -n "$F" ]; then
+            # a scheduled run has no inputs; it posts only once the owner has set CAROUSEL_LIVE
+            if [ "${{ github.event_name }}" = "schedule" ] && [ "${{ vars.CAROUSEL_LIVE }}" = "true" ]; then PUBLISH=true; fi
+            if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.publish }}" = "true" ]; then PUBLISH=true; fi
+          fi
+          echo "DATE=$D" >> $GITHUB_OUTPUT; echo "FORMAT=$F" >> $GITHUB_OUTPUT; echo "PUBLISH=$PUBLISH" >> $GITHUB_OUTPUT
+          echo "$D: ${F:-no carousel} ($WHY); publish: $PUBLISH"
+          echo "- $D: ${F:+format $F}${F:-no $DESK carousel} ($WHY); publish: $PUBLISH" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: The day's content, from this repository's daily run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IN_RUN: ${{ inputs.from_run }}
+        run: python3 ops/carousel_props.py fetch --desk "$DESK" --date "${{ steps.day.outputs.DATE }}" --out content --from-run "$IN_RUN"
+
+      - name: The slides' words and the caption (and the day's facts for Sunday)
+        id: build
+        run: |
+          python3 ops/carousel_props.py build --desk "$DESK" --date "${{ steps.day.outputs.DATE }}" --format "${{ steps.day.outputs.FORMAT }}" \
+            --content content --archive carousel/archive --out carousel_out
+          [ -f carousel_out/props.json ] && echo "BUILT=true" >> $GITHUB_OUTPUT || true
+
+      - name: Render the slides
+        id: render
+        if: ${{ steps.build.outputs.BUILT == 'true' }}
+        run: |
+          bash ops/chrome_deps.sh
+          (cd remotion && npm ci --no-audit --no-fund --silent)
+          if python3 ops/carousel_render.py carousel_out/props.json carousel_out; then
+            python3 meta_publish.py --carousel carousel_out --caption carousel_out/caption.txt --dry-run
+            echo "OK=true" >> $GITHUB_OUTPUT
+          fi
+          echo "--- caption"; cat carousel_out/caption.txt
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: carousel-${{ env.DESK }}-${{ steps.day.outputs.DATE }}-${{ github.run_attempt }}
+          path: |
+            carousel_out/
+            carousel/archive/${{ steps.day.outputs.DATE }}.json
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - name: Keep the day's facts for Sunday
+        if: ${{ github.event_name == 'schedule' || steps.day.outputs.PUBLISH == 'true' }}
+        run: |
+          F="carousel/archive/${{ steps.day.outputs.DATE }}.json"
+          [ -f "$F" ] || { echo "no facts for the day"; exit 0; }
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "$F"
+          git diff --cached --quiet && exit 0
+          git commit -q -m "Carousel archive: $DESK ${{ steps.day.outputs.DATE }}"
+          for i in 1 2 3; do
+            git pull --rebase -q && git push -q && { echo "archive pushed"; exit 0; }
+            git rebase --abort 2>/dev/null || true
+            sleep $((10 * i))
+          done
+          echo "::warning::The carousel archive for ${{ steps.day.outputs.DATE }} could not be pushed; Sunday's deck will miss this day"
+
+      - name: Posted already?
+        id: marker
+        if: ${{ steps.render.outputs.OK == 'true' && steps.day.outputs.PUBLISH == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          NAME="carousel-posted-$DESK-${{ steps.day.outputs.DATE }}"
+          AID=$(gh api "repos/${{ github.repository }}/actions/artifacts?name=$NAME&per_page=10" \
+            --jq '[.artifacts[] | select(.expired == false)] | sort_by(.created_at) | last | .id // empty')
+          if [ -n "$AID" ]; then
+            gh api "repos/${{ github.repository }}/actions/artifacts/$AID/zip" > m.zip && unzip -o -q m.zip -d marker
+            echo "an earlier post for this day: $(cat marker/carousel_result.json)"
+          fi
+          echo "NAME=$NAME" >> $GITHUB_OUTPUT
+
+      - name: Post to Instagram and Facebook
+        id: post
+        if: ${{ steps.render.outputs.OK == 'true' && steps.day.outputs.PUBLISH == 'true' }}
+        env:
+          META_PAGE_TOKEN: ${{ secrets.META_PAGE_TOKEN }}
+          META_PAGE_ID: ${{ secrets.META_PAGE_ID }}
+          META_IG_USER_ID: ${{ secrets.META_IG_USER_ID }}
+        run: |
+          python3 meta_publish.py --carousel carousel_out --caption carousel_out/caption.txt \
+            --result carousel_result.json --done marker/carousel_result.json
+          python3 -c "import json,sys; d=json.load(open('carousel_result.json')); sys.exit(0 if any(d.values()) else 1)" \
+            && echo "POSTED=true" >> $GITHUB_OUTPUT || true
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ steps.post.outputs.POSTED == 'true' }}
+        with:
+          name: ${{ steps.marker.outputs.NAME }}
+          path: carousel_result.json
+          retention-days: 90
+          overwrite: true

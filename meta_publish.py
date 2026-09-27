@@ -4,6 +4,7 @@ meta_publish.py - post a finished Short as an Instagram Reel and a Facebook Page
 
   python3 meta_publish.py --video short.mp4 --meta short_meta.txt     # title line, then description
   python3 meta_publish.py --video reel.mp4 --meta reel_meta.txt --cover reel_cover.png --thumb-offset 4750
+  python3 meta_publish.py --carousel carousel_out --caption carousel_out/caption.txt --result r.json [--done r.json] [--dry-run]
   python3 meta_publish.py --check                                      # token and ids only; posts nothing
 
 One account serves all three desks (GS, Sociology, Essay), and this file is the same in all
@@ -234,13 +235,149 @@ def check(token, page, ig):
     return problems
 
 
+# ------------------------------------------------------------------ carousels
+# The day's carousel (carousel.yml): 2 to 10 PNG slides of one size, to Instagram as a
+# CAROUSEL post and to the Facebook Page as one post with the photos attached. Instagram takes
+# images only from a public address, so each slide goes to the Page first as an unpublished
+# photo (nothing appears on the Page), and both legs use those photos: Instagram their
+# addresses, Facebook their ids. The token travels in the form body or the Authorization
+# header, never in an address. A slide that cannot be uploaded stops both legs, so half a
+# carousel is never posted. --done is the result of an earlier run for the same day: a leg it
+# already records is not posted again, so a re-run never posts twice.
+
+def _get_h(path, token, **params):
+    """a GET with the token in the Authorization header, never in the address"""
+    q = ("?" + urllib.parse.urlencode(params)) if params else ""
+    return _req(f"{GRAPH}/{path}{q}", headers={"Authorization": f"OAuth {token}"})
+
+
+def _png_size(path):
+    with open(path, "rb") as f:
+        head = f.read(24)
+    if head[:8] != b"\x89PNG\r\n\x1a\n":
+        raise RuntimeError(f"{os.path.basename(path)} is not a PNG")
+    return int.from_bytes(head[16:20], "big"), int.from_bytes(head[20:24], "big")
+
+
+def carousel_slides(folder):
+    """slide_01.png ... in order; 2 to 10 of them, all one size (Instagram crops a carousel to
+    its first slide's shape)"""
+    pngs = sorted(os.path.join(folder, f) for f in os.listdir(folder) if re.fullmatch(r"slide_\d+\.png", f))
+    if not 2 <= len(pngs) <= 10:
+        raise RuntimeError(f"{len(pngs)} slides in {folder}; a carousel takes 2 to 10")
+    sizes = {_png_size(p) for p in pngs}
+    if len(sizes) != 1:
+        raise RuntimeError(f"the slides are not all one size: {sorted(sizes)}")
+    return pngs
+
+
+def carousel_caption(path):
+    text = open(path, encoding="utf-8").read().strip()
+    if re.search(r"(?i)link\s+in\s+(the\s+)?bio", text):
+        raise RuntimeError("the caption says 'link in bio'; there is no link-in-bio page")
+    if len(text) > 2200 or len(re.findall(r"#\w+", text)) > 30:
+        raise RuntimeError("the caption is over Instagram's 2,200 characters or 30 hashtags")
+    return text
+
+
+def upload_photo(page_id, token, png):
+    """one slide as an unpublished Page photo: (photo id, the address of its largest size)"""
+    pid = _post_file(f"{page_id}/photos", token, png, published="false")["id"]
+    images = _get_h(pid, token, fields="images").get("images") or []
+    best = max(images, key=lambda i: int(i.get("width") or 0) * int(i.get("height") or 0), default={})
+    if not best.get("source"):
+        raise RuntimeError(f"the photo for {os.path.basename(png)} came back without an image address")
+    return pid, best["source"]
+
+
+def _ig_ready(cid, token, tries=60, pause=5):
+    for _ in range(tries):
+        st = _get_h(cid, token, fields="status_code").get("status_code")
+        if st == "FINISHED": return
+        if st in ("ERROR", "EXPIRED"): raise RuntimeError(f"Instagram could not process container {cid} ({st})")
+        time.sleep(pause)
+    raise RuntimeError(f"Instagram was still processing container {cid}")
+
+
+def ig_carousel(urls, caption, token, ig):
+    kids = []
+    for u in urls:
+        kids.append(_post(f"{ig}/media", token, image_url=u, is_carousel_item="true")["id"])
+    for k in kids:
+        _ig_ready(k, token)
+    cid = _post(f"{ig}/media", token, media_type="CAROUSEL", children=",".join(kids), caption=caption)["id"]
+    _ig_ready(cid, token)
+    return _post(f"{ig}/media_publish", token, creation_id=cid).get("id")
+
+
+def fb_carousel(photo_ids, caption, token, page):
+    media = {f"attached_media[{k}]": json.dumps({"media_fbid": pid}) for k, pid in enumerate(photo_ids)}
+    return _post(f"{page}/feed", token, message=caption, **media).get("id")
+
+
+def post_carousel(folder, caption_path, result=None, done=None, dry_run=False):
+    """posts the carousel in folder to Instagram and Facebook; returns {instagram, facebook} ids
+    (None for a leg not posted). Warnings, never a failure."""
+    state = {"instagram": None, "facebook": None}
+    if done and os.path.isfile(done):
+        try:
+            state.update({k: v for k, v in json.load(open(done)).items() if k in state})
+        except (OSError, ValueError):
+            pass
+    def save():
+        if result:
+            json.dump(state, open(result, "w"))
+    try:
+        pngs, caption = carousel_slides(folder), carousel_caption(caption_path)
+    except Exception as e:
+        warn(f"meta: carousel not posted: {e}")
+        save(); return state
+    token, page, ig = config()
+    legs = [leg for leg, target in (("instagram", ig), ("facebook", page)) if not state[leg]]
+    if dry_run:
+        print(f"meta: dry run: {len(pngs)} slides of {_png_size(pngs[0])[0]}x{_png_size(pngs[0])[1]}, caption {len(caption)} characters; "
+              f"would post to {', '.join(legs) or 'nothing (both legs already posted)'}; nothing was posted")
+        save(); return state
+    if not legs:
+        print("meta: this carousel is already on Instagram and Facebook; not posting again")
+        save(); return state
+    if not token or not page:
+        warn("meta: carousel not posted: META_PAGE_TOKEN or META_PAGE_ID is not set")
+        save(); return state
+    try:
+        photos = [upload_photo(page, token, p) for p in pngs]
+        print(f"meta: {len(photos)} slides uploaded to the Page unpublished")
+    except Exception as e:
+        warn(f"meta: carousel not posted: a slide could not be uploaded ({e})")
+        save(); return state
+    for leg in legs:
+        if leg == "instagram" and not ig:
+            warn("meta: no META_IG_USER_ID; the carousel did not go to Instagram"); continue
+        try:
+            state[leg] = (ig_carousel([u for _, u in photos], caption, token, ig) if leg == "instagram"
+                          else fb_carousel([i for i, _ in photos], caption, token, page))
+            print(f"meta: {leg} carousel published: {state[leg]}")
+        except Exception as e:
+            warn(f"meta: the {leg} carousel failed: {e}")
+        save()
+    return state
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--video"); ap.add_argument("--meta")
     ap.add_argument("--check", action="store_true", help="check the token and ids; post nothing; exit 1 on a problem")
     ap.add_argument("--cover", help="1080 x 1920 PNG for the Reel's cover on Instagram and Facebook")
     ap.add_argument("--thumb-offset", default="", help="the cover's moment in ms, Instagram's frame if the cover cannot be sent")
+    ap.add_argument("--carousel", help="a folder of slide_NN.png: post them as one carousel to Instagram and Facebook")
+    ap.add_argument("--caption", help="the carousel's caption (a text file)")
+    ap.add_argument("--result", help="the carousel's {instagram, facebook} ids (null when not posted) go here")
+    ap.add_argument("--done", help="an earlier --result for the same carousel: legs it records are not posted again")
+    ap.add_argument("--dry-run", action="store_true", help="check the carousel and its caption; post nothing")
     a = ap.parse_args()
+    if a.carousel:
+        post_carousel(a.carousel, a.caption, a.result, a.done, a.dry_run)
+        return 0
     token, page, ig = config()
     if a.check:
         problems = check(token, page, ig)
