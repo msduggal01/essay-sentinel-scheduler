@@ -2,7 +2,7 @@
 """
 carousel_props.py - the day's Instagram and Facebook carousel, built from the day's own content.
 
-  python3 ops/carousel_props.py decide --desk gs --date 2026-09-21 [--force] [--format A|C|D]
+  python3 ops/carousel_props.py decide --desk gs --date 2026-09-21 [--force] [--format A|B|C|D]
   python3 ops/carousel_props.py fetch  --desk gs --date 2026-09-21 --content content [--from-run ID]
   python3 ops/carousel_props.py build  --desk gs --date 2026-09-21 --format A --content content \
                                        --archive carousel/archive --out carousel_out
@@ -14,7 +14,8 @@ remotion/src/DeskCarousel.tsx draws the slides; this file only chooses and place
 One carousel a day across the shared account, on an IST calendar:
   Monday, Thursday     GS         Monday: format A, News to Syllabus, from the Mains script
                                   Thursday: format D, the day's best Prelims question, square
-  Tuesday, Friday      Sociology
+  Tuesday, Friday      Sociology  format B, Answer makeover, from the Sociology Mains script
+                                  (soc_mains_script.json, the daily run's soc-prep artifact)
   Wednesday, Saturday  Essay      format A for the Essay, from the day's Reel words
   Sunday               format C, a revision deck from the week's saved facts, for one desk
                        by ISO week number: week % 3 == 0 GS, 1 Sociology, 2 Essay
@@ -43,10 +44,11 @@ DESKS = {
     "essay":     {"name": "ESSAY DESK", "telegram": "t.me/upscdesk_essay", "days": {3: "A", 6: "A"}},
 }
 SUNDAY_DESK = {0: "gs", 1: "sociology", 2: "essay"}            # ISO week number % 3
-# the formats this file can build for each desk (the Sociology desk joins when its builders do)
-BUILDS = {"gs": {"A", "D", "C"}, "essay": {"A", "C"}, "sociology": set()}
+# the formats this file can build for each desk
+BUILDS = {"gs": {"A", "D", "C"}, "essay": {"A", "C"}, "sociology": {"B", "C"}}
 NUM = "zero one two three four five six seven eight nine ten eleven twelve".split()
 MINUTES = {10: "seven", 15: "eleven"}                          # GS writing time at the paper's pace
+SOC_MINUTES = {10: "seven", 20: "fifteen"}                     # the Sociology optional's pace
 DIRECTIVES = ["Critically examine", "Critically analyse", "Critically evaluate", "Compare and contrast", "Discuss",
               "Examine", "Analyse", "Evaluate", "Comment", "Elucidate", "Explain", "Assess", "Justify", "Illustrate"]
 
@@ -546,6 +548,306 @@ def essay_A(props, script, date):
             "slides": deck.slides}, check_caption(caption, allow)
 
 
+# ------------------------------------------------------------------ Sociology, format B (Tuesday, Friday)
+# heading of a margin note on the marked answer, from the mark's kind: a struck phrase is to be
+# avoided, an underlined one needs something added, a highlighted one scores unless its note
+# says it is a fault (a note that corrects the phrase) or points to an example or the news
+NOTE_FAULT = re.compile(r"(?i)\binstead\b|\brather than\b|\bnot\b|^(unnamed|anonymous|moralising|moralizing|listing|vague|generic|"
+                        r"policy wish|individual|attitude|description|narration|a wish|no )")
+NOTE_ADD = re.compile(r"(?i)^(add|name|cite|quote|write|use|bring|state|give)\b")
+
+
+def soc_heading(mark):
+    kind, note = mark.get("kind"), plain(mark.get("note"))
+    if kind == "strike": return "AVOID"
+    if kind == "ul": return "ADD"
+    if NOTE_FAULT.search(note): return "AVOID"
+    if NOTE_ADD.search(note): return "ADD"
+    if re.search(r"(?i)\bfor example\b|\bexample\b|\billustrat", note): return "EXAMPLE"
+    if re.search(r"(?i)\bcurrent affairs\b|\bin the news\b|\bthis year\b", note): return "CURRENT AFFAIRS"
+    return "WHY IT SCORES"
+
+
+def soc_sentences(text):
+    """the answer's sentences, word for word, in order (paragraph breaks become spaces)"""
+    out = []
+    for para in re.split(r"\n\s*\n", str(text or "")):
+        para = re.sub(r"\s+", " ", para).strip()
+        out += [x for x in re.split(r"(?<=[.?])\s+(?=[A-Z0-9\"“‘(])", para) if x]
+    return out
+
+
+def soc_excerpt(sheet, allow, limit=600):
+    """the marked answer cut to 3 or 4 marked phrases: the sentences that hold them, word for word,
+    '[ ... ]' between sentences that are not next to each other. None when fewer than three fit."""
+    import itertools
+    sents = soc_sentences(sheet.get("text"))
+    marks = []
+    for mk in sheet.get("marks") or []:
+        t, note = str(mk.get("text") or "").strip(), sentence(mk.get("note"))
+        k = next((i for i, s in enumerate(sents) if t and t in s), None)
+        if k is None or not note or len(note) > 130 or problems(note, allow) or problems(t, allow): continue
+        if any(m["i"] == k and (t in m["t"] or m["t"] in t) for m in marks): continue
+        marks.append({"i": k, "t": t, "note": note, "h": soc_heading(mk), "strike": mk.get("kind") == "strike"})
+    best = None
+    for n in (4, 3):
+        for combo in itertools.combinations(marks, n):
+            idx = sorted({m["i"] for m in combo})
+            body = sum(len(sents[i]) + 1 for i in idx) + 8 * sum(1 for a, b in zip(idx, idx[1:]) if b != a + 1)
+            notes = sum(len(m["note"]) + len(m["h"]) + 4 for m in combo)
+            if body > limit or notes > 470 or any(problems(sents[i], allow) for i in idx): continue
+            # the most kinds of note, then the fewest cuts, then a page that is full without spilling
+            gaps = sum(1 for a, b in zip(idx, idx[1:]) if b != a + 1)
+            key = (len({m["h"] for m in combo}), -gaps, -abs(body - 520))
+            if best is None or key > best[0]: best = (key, combo, idx)
+        if best: break
+    if not best:
+        return None
+    _, combo, idx = best
+    parts, prev = [], None
+    for i in idx:
+        lead = "" if prev is None else (" " if i == prev + 1 else " [\u00a0...\u00a0] ")      # the cut mark never breaks
+        s, pos, hits = sents[i], 0, sorted((m for m in combo if m["i"] == i), key=lambda m: sents[i].index(m["t"]))
+        for m in hits:
+            at = s.index(m["t"], pos)
+            if lead or at > pos: parts.append({"t": lead + s[pos:at]}); lead = ""
+            part = {"t": m["t"], "h": m["h"], "note": m["note"]}
+            if m["strike"]: part["strike"] = True
+            parts.append(part)
+            pos = at + len(m["t"])
+        if lead or pos < len(s): parts.append({"t": lead + s[pos:]})
+        prev = i
+    merged = []
+    for p in parts:                                 # plain runs next to each other become one
+        if merged and "h" not in p and "h" not in merged[-1]: merged[-1]["t"] += p["t"]
+        else: merged.append(p)
+    parts = merged
+    body = sum(len(p["t"]) for p in parts)
+    return {"parts": parts, "fs": 38 if body <= 460 else 37 if body <= 560 else 35, "nfs": 30 if sum(len(m["note"]) for m in combo) <= 400 else 28}
+
+
+def soc_paper_topic(tag1):
+    """'PAPER II · DALIT MOVEMENTS' -> ('PAPER II', 'DALIT MOVEMENTS')"""
+    a, _, b = re.sub(r"\s*·\s*", " · ", plain(tag1)).partition(" · ")
+    return a.strip().upper(), b.strip().upper()
+
+
+def soc_thinker(source):
+    """'B.R. Ambedkar, Annihilation of Caste, 1936' -> 'B.R. Ambedkar'"""
+    return plain(source).split(",")[0].strip()
+
+
+def soc_first_event_text(script):
+    """the words of the first news event in the day's script: the headings and bullets of its
+    slides (not the narration), to tell whether the news is about students"""
+    if not script:
+        return ""
+    ch = script.get("chapters") or []
+    lo = (ch[0].get("slide_id") if ch else 0) or 0
+    hi = (ch[1].get("slide_id") if len(ch) > 1 else 10 ** 6) or 10 ** 6
+    out = []
+    for s in script.get("slides", []):
+        if lo <= (s.get("id") or 0) < hi:
+            out += [str(s.get("heading") or "")] + [str(b) for b in s.get("bullets") or []]
+    return " ".join(out)
+
+
+def soc_name_key(head):
+    """the thinker a revision line is about: 'Max Weber on class' and 'Max Weber, Economy and
+    Society' are both 'weber'"""
+    name = re.split(r",| on ", plain(head))[0].strip()
+    return (name.split() or [""])[-1].lower()
+
+
+def soc_facts(m):
+    """the day's revision facts: the concepts (the term card; a map's concept, said in the map's
+    own line that names it) and the thinkers with their works (the ledger first, then the maps)"""
+    L = layouts(m)
+    concepts, thinkers = [], []
+    tc = L.get("term_card") or {}
+    if tc.get("term") and tc.get("definition"):
+        concepts.append({"head": plain(tc["term"]), "text": plain(tc["definition"]), "by": plain(tc.get("source"))})
+    for r in (L.get("ledger") or {}).get("rows") or []:
+        src = plain(r.get("source"))
+        if src and plain(r.get("line")):
+            thinkers.append({"head": re.split(r" on ", src)[0] if "," not in src else src, "text": plain(r["line"])})
+    for s in m.get("slides", []):
+        if s.get("layout") != "mind_map": continue
+        c = s.get("content") or {}
+        nodes = c.get("nodes") or []
+        if len(nodes) < 3: continue
+        con, thk, sc = plain(nodes[1].get("title")), nodes[2], c.get("source_card") or {}
+        keys = [w for w in re.findall(r"[a-z]{5,}", con.lower())]
+        said = next((plain(x.get("sub")) for x in (nodes[1], thk) if keys and any(k in plain(x.get("sub")).lower() for k in keys)), "")
+        if con and said and not any(x["head"].lower() == con.lower() for x in concepts):
+            concepts.append({"head": con, "text": said, "by": plain(sc.get("name"))})
+        head = ", ".join(x for x in (plain(sc.get("name")) or plain(thk.get("title")), plain(sc.get("work"))) if x)
+        if head and plain(thk.get("sub")):
+            thinkers.append({"head": head, "text": plain(thk["sub"])})
+    seen, uniq = set(), []
+    for t in thinkers:
+        k = soc_name_key(t["head"])
+        if k and k not in seen: seen.add(k); uniq.append(t)
+    if not (concepts or uniq):
+        return []
+    paper, topic = soc_paper_topic((L.get("question_card") or {}).get("tag1"))
+    return [{"kind": "sociology", "label": ", ".join(x for x in (paper.title().replace("Ii", "II").replace("Iii", "III"), topic.capitalize()) if x),
+             "concepts": concepts, "thinkers": uniq}]
+
+
+def soc_lead_card(m):
+    """a term card from the lead thinker when the day has none: the first event's concept, the
+    ledger's line for its thinker as what it means, and the thinker (with a work and year only
+    when the ledger gives them as 'Name, Work, 1936')"""
+    lead = next(iter(m.get("chain") or []), {})
+    who, term = plain(lead.get("thinker")), plain(lead.get("concept"))
+    last = who.split()[-1] if who else ""
+    row = next((r for r in (layouts(m).get("ledger") or {}).get("rows") or []
+                if last and re.search(rf"\b{re.escape(last)}\b", plain(r.get("source")))), None)
+    if not (term and row and plain(row.get("line"))):
+        return {}
+    src = plain(row.get("source"))
+    return {"term": term, "definition": plain(row["line"]), "source": src if re.fullmatch(r"[^,]+, [^,]+, \d{4}", src) else who}
+
+
+def soc_B(m, script, date):
+    L = layouts(m)
+    qc = need(L.get("question_card"), "the Mains question_card slide")
+    bs = need(L.get("band_shift"), "the Mains band_shift slide")
+    # running prose only (the narration and the answers), for telling a proper noun from a Title Case word
+    corpus = "\n".join([str(s.get("narration") or "") for s in m.get("slides", [])] +
+                       [str((s.get("content") or {}).get("text") or "") for s in m.get("slides", []) if s.get("layout") in ("answer_sheet", "rewrite")] +
+                       [str(s.get("narration") or "") for s in (script or {}).get("slides", [])])
+    q = need(re.sub(r"[\"“”]", "", unquote(qc.get("question"))).strip(), "the question")
+    allow = bool(STUDENT.search(q + " " + soc_first_event_text(script) + " " + json.dumps(L.get("intro") or {}, ensure_ascii=False)))
+    deck = Deck(allow)
+    paper, topic = soc_paper_topic(qc.get("tag1"))
+    tag2 = re.sub(r"\s*·\s*", " · ", plain(qc.get("tag2")))
+    marks = int((re.search(r"(\d+)\s*MARKS", tag2) or [0, 0])[1] or 0)
+    words = int((re.search(r"(\d+)\s*WORDS", tag2) or [0, 0])[1] or 0)
+    before, after, out_of = (int(bs.get(k) or 0) for k in ("before", "after", "out_of"))
+    need(before and after > before and out_of >= after and paper, "the marks before and after, and the paper")
+
+    # the topic pill, or its first part when the whole will not sit on the pills' line
+    pill3 = next((t for t in (topic, re.split(r",| AND ", topic)[0].strip()) if t and len(t) <= 24), "")
+
+    # the cover: the makeover in the accent, the takeaway from the move that matters most
+    coach = (L.get("coached") or {}).get("coach") or []
+    move = next((c for c in coach if c.get("tag") == "MOVE"), None) or next(iter(coach), None)
+    head_move = plain(move.get("head")) if move else plain(((L.get("word_budget") or {}).get("moves") or [{}])[-1].get("head"))
+    if head_move:
+        w0 = re.sub(r"[^\w']", "", head_move.split(" ")[0])
+        low = len(re.findall(rf"\b{re.escape(w0.lower())}\b", corpus))
+        cap = len(re.findall(rf"(?<![.?:]\s)(?<!^)\b{re.escape(w0)}\b", corpus))
+        if w0 and not (cap > low or w0.isupper()): head_move = head_move[:1].lower() + head_move[1:]
+    th = (L.get("thesis", {}).get("sentences") or [{}])[0]
+    choices = [f"The same answer, marked by an examiner and rewritten: _{head_move.rstrip('.')}_." if head_move else "",
+               highlight(th.get("text"), th.get("key"))]
+    take = next((t for t in choices if t and len(t) <= 190 and not problems(t, allow)), "")
+    deck.add({"kind": "cover", "kicker": "ANSWER MAKEOVER", "headline": f"One answer. *{before} becomes {after}.*", "size": 92,
+              "pills": [paper, tag2] + ([pill3] if pill3 else []), "takeaway": need(take, "a one-line takeaway")})
+
+    # the question, word for word, its marks, and the trap from its close
+    directive = next((d for d in DIRECTIVES if re.search(rf"(?i)\b{d}\b", q)), "")
+    qmarks = [{"text": plain(x.get("text")), "kind": "ul" if x.get("kind") == "ul" else "hl"} for x in qc.get("marks", [])
+              if plain(x.get("text")) and plain(x.get("text")) in q]
+    trap = fit(qc.get("close"), 170)
+    cut = next((c for c in coach if c.get("tag") == "CUT"), None)
+    if trap and cut and plain(cut.get("body")) and len(trap) + len(plain(cut["body"])) < 170 and not problems(cut["body"], allow):
+        more = plain(cut["body"])
+        more = re.sub(r"^([^,.]*?\b(?:sentences|lines|words))\b", r"*\1*", more, count=1)
+        trap = f"{trap} {more}"
+    n = len(q)
+    slide = {"kind": "question", "qsize": 42 if n <= 220 else 40 if n <= 290 else 36 if n <= 360 else 34 if n <= 460 else 0,
+             "question": q, "marks": qmarks, "pills": [paper, tag2] + ([directive.upper()] if directive else []), "trap": trap}
+    need(slide["qsize"], "a question short enough for one slide")
+    if not trap: slide.pop("trap")
+    deck.add(slide, drop=("trap",))
+
+    # the answer as written, with the examiner's pen
+    sheet = next((s.get("content") for s in m.get("slides", []) if s.get("layout") == "answer_sheet" and (s.get("content") or {}).get("marks")), None)
+    ex = soc_excerpt(need(sheet, "the marked answer (answer_sheet with marks)"), allow)
+    need(ex, "three marked phrases whose sentences fit the answer slide")
+    deck.add({"kind": "answer", "label": "The answer as written", "score": plain(sheet.get("score")) or f"{before} / {out_of}", **ex})
+
+    # most write, what scores: four swaps
+    pairs = [{"a": fit(p.get("a"), 72), "b": fit(p.get("b"), 72)} for p in (L.get("word_swaps") or {}).get("pairs") or []]
+    pairs = [p for p in pairs if p["a"] and p["b"] and not problems(p["a"], allow) and not problems(p["b"], allow)][:4]
+    if len(pairs) >= 3:
+        deck.add({"kind": "mostwrite", "label": "Most write, what scores", "title": f"{NUM[len(pairs)].capitalize()} swaps that lift the answer", "pairs": pairs}, optional=True)
+
+    # the marks ladder: each move and its marks, before to after
+    rows = [{"gain": int(r.get("gain") or 0), "head": fit(r.get("head"), 44), "body": fit(r.get("body"), 110)} for r in bs.get("rows") or []]
+    rows = [r for r in rows if r["gain"] > 0 and r["head"] and r["body"]]
+    if 2 <= len(rows) <= 5 and sum(r["gain"] for r in rows) == after - before:
+        deck.add({"kind": "ladder", "label": "Marks ladder", "title": f"Where the {after - before} marks came from", "before": before, "outOf": out_of,
+                  "rows": rows}, optional=True)
+
+    # the concept card: the term card, its thinker and work; a counter-view and a quote only when
+    # the day's own words give them
+    tc = L.get("term_card") or {}
+    if not (tc.get("term") and tc.get("definition")):
+        tc = soc_lead_card(m)
+    chain = next((c for c in m.get("chain") or [] if plain(c.get("concept")).lower() == plain(tc.get("term")).lower()), {})
+    if fit(tc.get("term"), 36) and fit(tc.get("definition"), 150) and fit(tc.get("source"), 70):
+        crow = [{"k": "MEANS", "v": fit(tc["definition"], 150)}, {"k": "THINKER", "v": fit(tc["source"], 70)}]
+        if fit(chain.get("event"), 80): crow.append({"k": "USE IT FOR", "v": sentence_case(fit(chain["event"], 80), corpus)})
+        bal = L.get("balance") or {}
+        against = next((x for x in (bal.get("right"), bal.get("left")) if x and plain(x.get("k")).upper() == "AGAINST"), None)
+        if against and fit(against.get("title"), 90) and not problems(against["title"], allow):
+            crow.append({"k": "COUNTER-VIEW", "v": fit(against["title"], 90)})
+        card = {"kind": "card", "label": "Concept card", "term": fit(tc["term"], 36), "rows": crow}
+        # the quote: a formulation the question itself quotes, when the day's words give it to the
+        # card's thinker (the question card's narration names them) and the ledger attributes the
+        # same idea to the card's source
+        quoted = re.search(r"[\"“]([^\"”]{12,160})[\"”]", str(qc.get("question") or ""))
+        who = soc_thinker(tc["source"])
+        qnarr = next((s.get("narration") or "" for s in m.get("slides", []) if s.get("layout") == "question_card"), "")
+        last = who.split()[-1] if who else ""
+        if quoted and last and re.search(rf"\b{re.escape(last)}\b", q + " " + qnarr):
+            words_q = set(re.findall(r"[a-z]{5,}", quoted[1].lower()))
+            led = next((r for r in (L.get("ledger") or {}).get("rows") or [] if plain(r.get("source")) == plain(tc["source"])), None)
+            if led and len(words_q & set(re.findall(r"[a-z]{5,}", plain(led.get("line")).lower()))) >= 2 and not problems(quoted[1], allow):
+                card["quote"], card["quoteBy"] = plain(quoted[1]), fit(tc["source"], 70)
+        deck.add(card, optional=True, drop=("quote", "quoteBy"))
+
+    mins = SOC_MINUTES.get(marks)
+    deck.add({"kind": "practice", "title": f"Write it in *{mins} minutes*" if mins else "Write it *tonight*",
+              "lines": practice_lines("sociology", f"Then get it evaluated at *{EVALUATE}*, five free evaluations every month."),
+              "pill": "SAVE FOR REVISION"})
+    if len(deck.slides) < 5:
+        raise Skip(f"only {len(deck.slides)} slides passed; an Answer makeover carousel needs at least five")
+
+    # the caption: search-first line, two or three plain lines, then the fixed close
+    topic_s = sentence_case(topic.title(), corpus) if topic else ""
+    paper_s = paper.title().replace("Ii", "II").replace("Iii", "III")
+    line1 = f"UPSC Sociology Optional, {paper_s}{', ' + topic_s if topic_s else ''}: one answer marked and rewritten, {before} becomes {after} out of {out_of}."
+    term, src = plain(tc.get("term")), plain(tc.get("source"))
+    verb = {"comment": "comment on", "": "answer"}.get(directive.lower(), directive.lower())
+    body = [f"The probable question, {marks} marks: {verb} it in {words} words." if marks and words else "",
+            trap.replace("*", "") if trap and not problems(trap, allow) else "",
+            f"The concept to use: {term}, {src}." if term and src else ""]
+    body = [b for b in body if b][:3]
+    extra = [camel(topic_s)] if topic_s and camel(topic_s) else []
+    if term and camel(term): extra.append(camel(term))
+    who = soc_thinker(src)
+    if who: extra.append(who.split()[-1])
+    base = ["SociologyOptional", "UPSCSociology", "UPSCMains", "UPSC", "CivilServices", "AnswerWriting"]
+    tags = hashtags(base, extra + ["IAS", "UPSCPreparation"])[:max(8, len(base) + len(extra))]
+    caption = "\n".join([line1, "", *body, "", *closing_lines("sociology"), "", " ".join(tags)])
+    return {"desk": "sociology", "format": "B", "issue": str(m.get("issue_no") or ""), "date": day_str(date), "square": False,
+            "slides": deck.slides}, check_caption(caption, allow)
+
+
+def mnemonic(heads):
+    """the initials of the heads, when they can be said as one word (a vowel, no three consonants
+    running); otherwise none"""
+    ini = "".join(re.sub(r"[^A-Za-z]", "", h)[:1].upper() for h in heads)
+    if 3 <= len(ini) <= 6 and re.search(r"[AEIOU]", ini) and not re.search(r"[^AEIOU]{3}", ini):
+        return ini
+    return ""
+
+
 # ------------------------------------------------------------------ format C (Sunday revision)
 def week_days(date):
     mon = date - dt.timedelta(days=date.isoweekday() - 1)
@@ -584,6 +886,29 @@ def revision_C(desk, date, archive):
         for k in range(0, min(len(items), 8), 4):
             groups.append({"label": "This week's topics", "title": "Decoded" if k == 0 else "Decoded, continued", "items": items[k:k + 4]})
         pills = ["ESSAY DESK", "ESSAY PAPER"]
+    elif desk == "sociology":
+        # the week's concepts, then its thinkers with their works, newest day first within each
+        cons, thks, seen = [], [], set()
+        for _, fs in reversed(saved):
+            for g in fs:
+                if g.get("kind") != "sociology": continue
+                for c in g.get("concepts") or []:
+                    it = {"head": fit(c.get("head"), 48), "text": fit(c.get("text"), 120)}
+                    if ok(it) and it["head"].lower() not in seen: seen.add(it["head"].lower()); cons.append(it)
+                for t in g.get("thinkers") or []:
+                    it = {"head": fit(t.get("head"), 60), "text": fit(t.get("text"), 120)}
+                    k = soc_name_key(it["head"])
+                    if ok(it) and k not in seen: seen.add(k); thks.append(it)
+        cons, thks = cons[:4], thks[:4]
+        while len(cons) + len(thks) > 8:
+            (thks if len(thks) >= len(cons) else cons).pop()
+        if cons:
+            g = {"label": "This week's concepts", "title": "Concepts, in one line each", "items": cons}
+            if mnemonic([c["head"] for c in cons]): g["mnemonic"] = mnemonic([c["head"] for c in cons])
+            groups.append(g)
+        if thks:
+            groups.append({"label": "Thinkers and works", "title": "Who said it, and where", "items": thks})
+        pills = ["SOCIOLOGY DESK", "PAPER I AND II"]
     else:
         raise Skip(f"no Sunday builder for the {desk} desk yet")
     total = sum(len(g["items"]) for g in groups)
@@ -608,11 +933,12 @@ def revision_C(desk, date, archive):
               "lines": ["Cover the right side and say each line aloud."] + practice_lines(desk, f"Then write one {work} and get it evaluated at *{EVALUATE}*, five free evaluations every month."),
               "pill": "SAVE FOR REVISION"})
     heads = "; ".join(g["title"] for g in groups)
-    name = {"gs": "GS", "essay": "Essay"}[desk]
+    name = {"gs": "GS", "essay": "Essay", "sociology": "Sociology"}[desk]
     line1 = f"UPSC {name} revision, {span}: {heads}."
     body = [f"{NUM[total].capitalize()} lines from this week's {name} Desk, to save and revise.", "Cover the right side and test yourself on Wednesday."]
     base = {"gs": ["UPSC", "UPSCMains", "UPSCPrelims", "IAS", "CivilServices", "UPSCPreparation", "CurrentAffairs", "Revision", "SundayRevision"],
-            "essay": ["UPSC", "UPSCEssay", "EssayWriting", "EssayPaper", "UPSCMains", "IAS", "CivilServices", "Revision", "SundayRevision"]}[desk]
+            "essay": ["UPSC", "UPSCEssay", "EssayWriting", "EssayPaper", "UPSCMains", "IAS", "CivilServices", "Revision", "SundayRevision"],
+            "sociology": ["SociologyOptional", "UPSCSociology", "UPSCMains", "UPSC", "CivilServices", "AnswerWriting", "Revision", "SundayRevision"]}[desk]
     caption = "\n".join([line1, "", *body, "", *closing_lines(desk, work), "", " ".join(hashtags(base, []))])
     return {"desk": desk, "format": "C", "issue": "", "date": span, "square": False, "slides": deck.slides}, check_caption(caption, False)
 
@@ -654,7 +980,9 @@ def fetch(desk, date, out, from_run=""):
     repo = os.environ.get("GITHUB_REPOSITORY") or subprocess.run(["gh", "repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"],
                                                                  check=True, capture_output=True, text=True).stdout.strip()
     os.makedirs(out, exist_ok=True)
-    names = {"gs": ["scripts"], "essay": ["script", "reel"], "sociology": ["script", "reel"]}[desk]
+    # the Sociology Mains script is composed and humanised in the daily run's video job (soc-prep,
+    # build/soc/soc_mains_script.json); the day's script itself is the artifact 'script'
+    names = {"gs": ["scripts"], "essay": ["script", "reel"], "sociology": ["soc-prep", "script"]}[desk]
     if from_run:
         arts = gh_json(f"repos/{repo}/actions/runs/{from_run}/artifacts?per_page=100")["artifacts"]
         arts = [a for a in arts if not a["expired"] and (a["name"] in names or a["name"] == "reel-test")]
@@ -708,6 +1036,9 @@ def build(desk, date, fmt, content, archive, out):
     elif desk == "essay":
         r, s = load(os.path.join(content, "reel_props.json")), load(os.path.join(content, "video_script.json"))
         facts = essay_facts(r) if r else []
+    elif desk == "sociology":
+        m, s = load(os.path.join(content, "soc_mains_script.json")), load(os.path.join(content, "video_script.json"))
+        facts = soc_facts(m) if m else []
     try:
         if fmt == "C":
             built = revision_C(desk, date, archive)
@@ -715,6 +1046,8 @@ def build(desk, date, fmt, content, archive, out):
             built = gs_A(need(m, "the day's Mains script (mains_script.json)"), date)
         elif desk == "gs" and fmt == "D":
             built = gs_D(need(p, "the day's Prelims script (prelims_script.json)"), date)
+        elif desk == "sociology" and fmt == "B":
+            built = soc_B(need(m, "the day's Sociology Mains script (soc_mains_script.json)"), s, date)
         elif desk == "essay" and fmt == "A":
             built = essay_A(need(r, "the day's Reel words (reel_props.json)"), s, date)
         elif fmt:
