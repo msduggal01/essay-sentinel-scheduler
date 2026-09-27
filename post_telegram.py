@@ -81,6 +81,11 @@ def main():
         print("Set TELEGRAM_BOT_TOKEN and TELEGRAM_CHANNEL in the environment.")
         sys.exit(1)
 
+    # an empty --youtube (a failed upload's missing URL) must never become a post
+    if args.youtube is not None and not args.youtube.strip().startswith("https://"):
+        print(f"No YouTube URL to post ({args.youtube!r}); nothing sent to Telegram.")
+        sys.exit(1)
+
     data = json.load(open(args.json))
     caption = build_caption(data, args.youtube)
 
