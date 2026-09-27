@@ -183,6 +183,15 @@ jobs:
           echo "YouTube: $URL"
           python3 post_telegram.py --json video_script.json --youtube "$URL" --thumb build/issue_$ISSUE/thumb.png
 
+      - name: Confirm the brief email went out
+        # The agent emails the brief itself, inside its session, and nothing checked that it
+        # did. Last, so it blocks nothing; on a brief day without a confirmed send it fails
+        # the run with "Brief email not confirmed", which is what the owner sees.
+        if: ${{ always() && steps.mode.outputs.MODE == 'brief' && steps.create_session.outputs.SESSION_ID != '' }}
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python3 ops/brief_check.py "${{ steps.create_session.outputs.SESSION_ID }}"
+
   # ---- The day's Reel: the new format (remotion/src/DeskShort.tsx), one a day ----
   # Its own job after the day's run, with its own time budget; best effort throughout. The
   # Reel goes to YouTube as a Short and to Instagram and Facebook as a Reel (--crosspost).

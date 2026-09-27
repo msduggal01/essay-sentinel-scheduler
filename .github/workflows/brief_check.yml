@@ -1,0 +1,28 @@
+name: Brief email check (read-only)
+
+# Manual. Reads one agent session's events and says whether the brief email was sent in it
+# (ops/brief_check.py; the daily run does the same as its last step on brief days). It sends
+# nothing and changes nothing; it prints counts only, never an address.
+on:
+  workflow_dispatch:
+    inputs:
+      session_id:
+        description: "The agent session to check (sesn_...)"
+        required: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Was the brief emailed in this session?
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SESSION_ID: ${{ inputs.session_id }}
+        run: python3 ops/brief_check.py "$SESSION_ID" --describe
