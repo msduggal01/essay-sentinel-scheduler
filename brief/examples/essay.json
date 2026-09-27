@@ -1,0 +1,253 @@
+{
+ "desk": "essay",
+ "issue": "071",
+ "date": "27 September 2026",
+ "motivation": "Write the introduction tonight, in twelve minutes, and compare it with the one below.",
+ "topics": [
+  {
+   "section": "A",
+   "archetype": "Abstract",
+   "theme": "Climate and ecology, and society's last person",
+   "band_sub": "Two model essays on a brief day; this is the first",
+   "topic": "The flood remembers no boundary of income, but the relief camp does.",
+   "asks": "Everyone faces the flood; not everyone recovers from it. Who carries the loss?",
+   "pill": "Set in 2022 and 2024 · rising",
+   "skeleton": [
+    [
+     "Decode",
+     "The flood reaches everyone. Recovery depends on money, housing and who the state counts."
+    ],
+    [
+     "Thesis",
+     "Disasters are equal when they arrive and unequal in what follows; judge the state by how evenly it helps people rebuild."
+    ],
+    [
+     "Ways in",
+     "Two houses on one street; the relief camp register; Article 21 read as livelihood."
+    ]
+   ],
+   "sets_apart": "they write about the months after the flood. Most essays describe only the water.",
+   "architecture": [
+    {
+     "label": "Opening",
+     "title": "Two houses",
+     "text": "One river, one street, two outcomes."
+    },
+    {
+     "label": "Decode",
+     "title": "Arrival and aftermath",
+     "text": "What the topic is really asking."
+    },
+    {
+     "label": "Lenses",
+     "title": "Eight, in order",
+     "text": "Each one follows from the last."
+    },
+    {
+     "label": "Close",
+     "title": "Back to the street",
+     "text": "Only the water treats people equally."
+    }
+   ],
+   "lenses": {
+    "hub": "Equal flood, unequal recovery",
+    "spokes": [
+     [
+      "Ecological",
+      "rain that does not choose"
+     ],
+     [
+      "Economic",
+      "the poor lose a larger share"
+     ],
+     [
+      "Social",
+      "wage workers, women, the old"
+     ],
+     [
+      "Governance",
+      "relief counted, recovery not"
+     ],
+     [
+      "Ethical",
+      "Article 21 as livelihood"
+     ],
+     [
+      "Historical",
+      "the Kosi, 2008"
+     ],
+     [
+      "Counter-view",
+      "bad luck, or policy?"
+     ],
+     [
+      "Global",
+      "who pays for loss and damage"
+     ]
+    ]
+   },
+   "essay": [
+    {
+     "text": "[[When the river rose in a small town in Assam last monsoon|1]], it came up to the same height in every lane. It filled the ground floor of a two-storey house in the new colony, and it filled the single room of a rented house beside the drain. A month later the two families were in very different places. The first had carried its furniture upstairs, claimed its insurance and called a contractor. The second was still in a [[school building that had become a relief camp|2]], waiting for its name to appear on a list so that it could be paid for a house it did not own. Both families had faced the same water. Only one of them had anywhere to go once it went down.",
+     "notes": [
+      {
+       "n": 1,
+       "tag": "WHY IT SCORES",
+       "text": "A scene carries the topic before any argument. Avoid opening with a definition of disaster."
+      },
+      {
+       "n": 2,
+       "tag": "ADD",
+       "text": "Bring the relief camp into the first paragraph. It is the second half of the topic."
+      }
+     ]
+    },
+    {
+     "text": "That is the difference the topic points to. A flood is a natural event and falls on everyone alike. The damage it leaves, and how long each family takes to recover, depend on decisions made long before the rain: who can afford to live on higher ground, who has savings or insurance, and who is counted when help arrives. My argument is that [[disasters are equal when they arrive and unequal in what follows|3]], and that a fair state should be judged by how evenly it helps people rebuild.",
+     "notes": [
+      {
+       "n": 3,
+       "tag": "WHY IT SCORES",
+       "text": "One thesis, stated once. Every later paragraph should connect back to this sentence."
+      }
+     ]
+    },
+    {
+     "text": "The first reason is ecological, and it concerns the hazard itself. Heavy rainfall does not choose its victims, and the [[Intergovernmental Panel on Climate Change|4]] has reported that extreme rain is becoming heavier and more frequent as the climate warms. The risk is spreading to more places and more people, including cities that did not flood a generation ago. What is not spread evenly is exposure. In most growing cities [[the cheapest land is the lowest land|5]], close to drains, embankments and dry riverbeds, and that is where poor families find rooms they can afford. The same rain therefore reaches their doors first and stays longest.",
+     "notes": [
+      {
+       "n": 4,
+       "tag": "EXAMPLE",
+       "text": "A sourced line on the hazard, followed at once by the point about exposure."
+      },
+      {
+       "n": 5,
+       "tag": "CURRENT AFFAIRS",
+       "text": "Add a recent urban flood in a low-lying area here, in one line: the place and the month."
+      }
+     ]
+    },
+    {
+     "text": "The economic effects are also uneven. A salaried household loses some furniture and a few weeks of comfort. A street vendor who keeps his stock in a [[handcart|6]], or a tailor whose sewing machine is her only asset, can lose almost everything in a night. Very few poor households hold insurance, so recovery is paid for with loans from moneylenders, with jewellery sold at a loss, or with a child kept home from school to earn. The poor lose a larger share of what they own, they pay more to borrow, and they take longer to get back to where they were.",
+     "notes": [
+      {
+       "n": 6,
+       "tag": "EXAMPLE",
+       "text": "Small concrete examples show how the loss works. They persuade more than general statements."
+      }
+     ]
+    },
+    {
+     "text": "The loss is uneven inside the household as well. Daily wage workers lose income as soon as the roads flood. Women do most of the work of keeping a family going in a camp, collecting water, cooking and looking after the sick, yet the camp's register is usually kept in a man's name. [[Old people and people with disabilities|7]] are the hardest to move during an evacuation and are often the last to leave. A relief list that counts households can miss the people inside them.",
+     "notes": [
+      {
+       "n": 7,
+       "tag": "ADD",
+       "text": "Say why each group is exposed. A list of vulnerable groups without reasons earns little."
+      }
+     ]
+    },
+    {
+     "text": "The state has built a system meant to close these gaps. The Disaster Management Act of 2005 created authorities at the national, state and district levels, and India signed the [[Sendai Framework|8]] in 2015, which asks countries to “build back better”. [[Relief has improved|9]]: warnings go out earlier, rescue teams arrive faster and camps open sooner. The difficulty is with what comes after. Relief is counted in camps opened and food packets handed out, while recovery, the return of a house and an income, is rarely measured, and compensation is usually tied to ownership papers that tenants and pavement dwellers do not have.",
+     "notes": [
+      {
+       "n": 8,
+       "tag": "WHY IT SCORES",
+       "text": "Credit what the state has done before criticising it. It reads as balance."
+      },
+      {
+       "n": 9,
+       "tag": "CURRENT AFFAIRS",
+       "text": "Mention a recent relief package, or a Centre and state dispute over relief funds."
+      }
+     ]
+    },
+    {
+     "text": "There is also a constitutional side to this. In Olga Tellis v. Bombay Municipal Corporation, decided in 1985, the Supreme Court held that the [[right to livelihood is part of the right to life under Article 21|10]]. If that is so, a recovery that rebuilds a roof but leaves a family without its income has not restored a right. Relief keeps people alive through the worst weeks. Recovery is what allows them to carry on with their lives afterwards.",
+     "notes": [
+      {
+       "n": 10,
+       "tag": "EXAMPLE",
+       "text": "A court ruling gives the argument a basis in rights. Cite it once and reason from it."
+      }
+     ]
+    },
+    {
+     "text": "The pattern is not new. When the [[Kosi breached its embankment in August 2008|11]], the river changed course and flooded large parts of north Bihar. The water fell on landowners and labourers alike, but the landless were among the last to leave the camps, because they had no land to return to and no papers to claim compensation with. Each flood since then has repeated some part of that story, which suggests that the unequal aftermath is built into how relief is organised.",
+     "notes": [
+      {
+       "n": 11,
+       "tag": "EXAMPLE",
+       "text": "One historical flood shows the pattern is old. Keep it to a few lines."
+      }
+     ]
+    },
+    {
+     "text": "It can be objected that floods are simply bad luck, and that relief in India is already generous. Chance does decide where the water goes. Policy decides who lives in its path and who is insured against it. Where states have planned for what comes after a disaster, the results have changed. [[Odisha|12]] lost thousands of people in the cyclone of 1999, and in later cyclones, after years of building shelters and warning systems, the number of deaths fell sharply. The same kind of hazard produced a very different outcome because the state had prepared.",
+     "notes": [
+      {
+       "n": 12,
+       "tag": "WHY IT SCORES",
+       "text": "The objection is stated fairly and answered with a well known example."
+      }
+     ]
+    },
+    {
+     "text": "The same question now arises between countries. Poorer nations often suffer floods and cyclones driven by emissions they did little to produce. At COP27 in 2022, governments agreed to set up a [[fund for loss and damage|13]], and at COP28 in 2023 they agreed how it would work. The amounts pledged are small next to the need, but the principle has been accepted: those who caused more of the harm should pay more towards the recovery. It is the relief camp problem at the scale of the world.",
+     "notes": [
+      {
+       "n": 13,
+       "tag": "CURRENT AFFAIRS",
+       "text": "Mention the latest climate summit's decision on the fund, if you know it."
+      }
+     ]
+    },
+    {
+     "text": "The monsoon will return, and it will rise to the same height in every lane again. What need not return is the familiar pattern in which the same families lose the most and recover last. That would mean counting recovery as carefully as relief, paying tenants as well as owners, and planning shelters and insurance for those who live on the low ground. Gandhi asked that every decision be tested against the face of the poorest person one has seen. For disasters, that test is simple to apply. A state cannot stop the flood, but it can make sure that [[the water is the only thing that treats everyone equally|14]].",
+     "notes": [
+      {
+       "n": 14,
+       "tag": "WHY IT SCORES",
+       "text": "The close returns to the opening scene. Avoid “In conclusion” and a list of recommendations."
+      }
+     ]
+    }
+   ],
+   "lifted": "an opening scene that carries the topic, one thesis followed all the way through, a fair answer to the obvious objection, and a close that returns to the opening scene.",
+   "ammunition": [
+    {
+     "source": "IPCC assessment reports",
+     "line": "Extreme rainfall is becoming heavier and more frequent."
+    },
+    {
+     "source": "*Disaster Management Act*, 2005",
+     "line": "Authorities at national, state and district levels."
+    },
+    {
+     "source": "*Sendai Framework*, 2015 to 2030",
+     "line": "Build back better."
+    },
+    {
+     "source": "*Olga Tellis* v. Bombay Municipal Corporation, 1985",
+     "line": "Livelihood is part of the right to life."
+    },
+    {
+     "source": "Odisha, after the 1999 cyclone",
+     "line": "Shelters and warnings sharply reduced deaths in later cyclones."
+    },
+    {
+     "source": "Loss and damage fund",
+     "line": "Agreed at COP27 (2022), set up at COP28 (2023)."
+    },
+    {
+     "source": "The Kosi breach, August 2008",
+     "line": "The river changed course and flooded north Bihar."
+    },
+    {
+     "source": "Gandhi's talisman",
+     "line": "Test each decision against the face of the poorest person you have seen."
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,147 @@
+{
+ "desk": "sociology",
+ "issue": "126",
+ "date": "27 September 2026",
+ "motivation": "All three events this week are about caste and labour. Read each one as a Paper 2 question, and write at least one of the answers tonight.",
+ "events": [
+  {
+   "paper": 2,
+   "syllabus": "Caste system, Dalit movements",
+   "title": "Caste Inside India's Elite Institutes",
+   "question": "Caste is not a division of labour, it is a division of labourers. Critically examine this formulation with reference to caste discrimination in premier educational institutions.",
+   "question_summary": "Caste as a division of labourers: critically examine (20 marks)",
+   "marks": 20,
+   "pill": "Asked before: Ambedkar on caste",
+   "skeleton": [
+    [
+     "Introduction",
+     "Ambedkar, 1936, and graded inequality as the idea you will test."
+    ],
+    [
+     "The case",
+     "IIT Bombay in two sentences: equal entry, unequal treatment afterwards."
+    ],
+    [
+     "Deepen",
+     "Deshpande's castelessness, to explain why the ranking goes unnoticed."
+    ],
+    [
+     "Counter-view",
+     "Gupta: castes as separate groups, and hierarchy as contested."
+    ],
+    [
+     "Conclusion",
+     "Judge the institution by how it treats students after admission."
+    ]
+   ],
+   "sets_apart": "they name the concept before the case, and they give the counter-view its own paragraph.",
+   "chain": [
+    {
+     "label": "The news",
+     "title": "IIT Bombay, September 2026",
+     "text": "A Dalit student's death puts caste on campus back in the news."
+    },
+    {
+     "label": "The concept",
+     "title": "Graded inequality",
+     "text": "Each caste has one above it and one below it."
+    },
+    {
+     "label": "The thinker",
+     "title": "B.R. Ambedkar",
+     "text": "Annihilation of Caste, 1936."
+    },
+    {
+     "label": "The answer",
+     "title": "Ranking after entry",
+     "text": "Entry is equal; treatment after admission is not."
+    }
+   ],
+   "answer": [
+    {
+     "text": "Ambedkar made this point in [[*Annihilation of Caste* (1936)|1]]. His argument was that caste does more than sort people into jobs. It ranks the people who do those jobs, and the rank is fixed at birth. He called this [[graded inequality|2]]: every caste has one above it to resent and one below it to look down on, which is why the order holds together.",
+     "notes": [
+      {
+       "n": 1,
+       "tag": "AVOID",
+       "text": "Opening with varna and jati definitions. The question is about Ambedkar's formulation."
+      },
+      {
+       "n": 2,
+       "tag": "WHY IT SCORES",
+       "text": "The concept is named in the first three lines, with the book and the year."
+      }
+     ]
+    },
+    {
+     "text": "The death of a Dalit student at [[IIT Bombay in September 2026|3]] shows how this works inside an elite institution. Entry is formally equal, through a common examination and reservation. What follows is not. Students describe being asked their rank, called quota students and left out of study groups. Satish Deshpande names the other side of this [[castelessness|4]]: upper-caste students see their own place as earned by merit, so they do not notice the ranking at all.",
+     "notes": [
+      {
+       "n": 3,
+       "tag": "CURRENT AFFAIRS",
+       "text": "Keep the case to two sentences. The Rohith Vemula case (2016) can be added to show a pattern."
+      },
+      {
+       "n": 4,
+       "tag": "EXAMPLE",
+       "text": "Deshpande's term explains why those at the top do not see the ranking. Use it once, correctly."
+      }
+     ]
+    },
+    {
+     "text": "The formulation has limits. Dipankar Gupta, in [[*Interrogating Caste* (2000)|5]], argues that castes are separate groups, each with its own claim to status, and not rungs on a ladder that everyone accepts. Read this way, what happens on campus is also a contest. Dalit student groups and the UGC's [[2012 equity regulations|6]] show the ranking being challenged as well as repeated.",
+     "notes": [
+      {
+       "n": 5,
+       "tag": "WHY IT SCORES",
+       "text": "Critically examine needs a limit. Gupta gives one from within Indian sociology."
+      },
+      {
+       "n": 6,
+       "tag": "ADD",
+       "text": "One institutional fact that shows the other side of the argument."
+      }
+     ]
+    },
+    {
+     "text": "Even so, Ambedkar's reading explains more of this case than Gupta's. In these institutions caste works less by keeping students out than by ranking them once they are in. An institution should be judged by how it treats students [[after admission|7]], not only by whether it admits them.",
+     "notes": [
+      {
+       "n": 7,
+       "tag": "AVOID",
+       "text": "Ending on sensitisation workshops or a list of recommendations. Close with a judgement."
+      }
+     ]
+    }
+   ],
+   "ammunition": [
+    {
+     "source": "Ambedkar, *Annihilation of Caste* (1936)",
+     "line": "Caste is a division of labourers as well as of labour."
+    },
+    {
+     "source": "Ambedkar, on graded inequality",
+     "line": "Castes are arranged in an ascending order of reverence and a descending order of contempt."
+    },
+    {
+     "source": "Satish Deshpande",
+     "line": "Upper castes tend to experience themselves as casteless and read their privilege as merit."
+    },
+    {
+     "source": "Dipankar Gupta, *Interrogating Caste* (2000)",
+     "line": "Castes are separate groups; hierarchy is contested rather than agreed."
+    },
+    {
+     "source": "UGC regulations, 2012",
+     "line": "The Promotion of Equity in Higher Educational Institutions regulations."
+    }
+   ],
+   "thinker": {
+    "name": "B.R. Ambedkar",
+    "dates": "1891 to 1956",
+    "text": "Ambedkar saw caste as a ranking of people that every group helps to keep in place, because each has someone below it. For Paper 2, read him alongside Dumont, who treats hierarchy as a set of shared ideas, and Gupta, who treats it as a contest between groups."
+   },
+   "practice": "Write this answer tonight in eighteen minutes, then get it evaluated at evaluate.upscdesk.com."
+  }
+ ]
+}
