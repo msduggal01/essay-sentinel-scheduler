@@ -4,16 +4,25 @@
 the content first and builds nothing until every check passes. Worked examples, one per desk,
 are in `examples/sociology.json` and `examples/essay.json`: copy the shape, not the words.
 
+In the desks' agent sandboxes the kit is mounted read-only at `/mnt/session/uploads/brief/` by the
+workflow that starts the session (`mount_kit.py`), because the sandbox network cannot reach GitHub:
+
+```
+python3 /mnt/session/uploads/brief/brief_build.py content.json sociology_desk_issue_126_27SEP2026.pdf
+```
+
+Anywhere with network access, fetch it instead:
+
 ```
 curl -fsSL -o briefkit.py    https://raw.githubusercontent.com/msduggal01/essay-sentinel-scheduler/main/brief/briefkit.py
 curl -fsSL -o brief_build.py https://raw.githubusercontent.com/msduggal01/essay-sentinel-scheduler/main/brief/brief_build.py
-python3 brief_build.py content.json sociology_desk_issue_126_27SEP2026.pdf
 ```
 
-Needs Python 3 and ReportLab (`pip install reportlab` if the import fails). Arial and Georgia are
-used when the machine has them; otherwise the built-in Helvetica and Times, which look the same
-in layout. A PDF built with the built-in fonts is small (15 to 40 KB) because nothing is
-embedded: judge it by the builder's exit code, not by its size.
+Needs Python 3 and ReportLab. Arial and Georgia are used when the machine has them, else Liberation
+Sans (the same size as Arial, installed in the sandboxes), else the built-in Helvetica; the serif
+falls back to the built-in Times. The layout is the same in every case. The PDF's size depends on
+which fonts were embedded (about 90 KB in the sandbox, 15 to 40 KB with only built-in fonts):
+judge it by the builder's exit code, not by its size.
 
 ## Markup inside any text
 
