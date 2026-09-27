@@ -18,6 +18,20 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 
 
+def cover_line(title, info):
+    """The essay topic for the cover: the title without its question and label, completed
+    from the description when YouTube's 100-character title cut it off mid-word."""
+    t = re.sub(r"\s*#\w+", "", title).split(" | ")[0].strip()
+    t = re.sub(r"^Could you write this essay\?\s*", "", t)
+    desc = ((info.get("items") or [{}])[0].get("snippet") or {}).get("description", "")
+    i = desc.find(t)
+    if t and i >= 0:
+        rest = re.split(r"[\n|]", desc[i:])[0].strip()
+        if len(rest) >= len(t):
+            t = rest
+    return t
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--since", required=True, help="YYYY-MM-DD, UTC")
@@ -38,7 +52,7 @@ def main():
             if when[:10] < a.since:
                 continue
             title = it["snippet"]["title"]
-            line = re.sub(r"\s*#\w+", "", title).strip()
+            line = cover_line(title, yt.videos().list(part="snippet", id=vid).execute())
             out = f"covers/{vid}.png"
             make_short.make_cover({"events": [{"event": line}]}, out)
             n += 1
