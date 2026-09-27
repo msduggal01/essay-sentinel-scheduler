@@ -19,7 +19,7 @@ jobs:
           curl -s -X POST "https://api.anthropic.com/v1/sessions/${{ steps.cs.outputs.SID }}/events" -H "x-api-key: ${{ secrets.ANTHROPIC_API_KEY }}" -H "anthropic-version: 2023-06-01" -H "anthropic-beta: managed-agents-2026-04-01" -H "Content-Type: application/json" -d '{"events":[{"type":"user.message","content":[{"type":"text","text":"execute"}]}]}'
       - name: Poll until completion
         run: |
-          SID="${{ steps.cs.outputs.SID }}"; MAX=40; I=0; LAST=0; STABLE=0; STARTED=false
+          SID="${{ steps.cs.outputs.SID }}"; MAX=40; I=0; LAST=0; STABLE=0; STARTED=false; DONE=false
           sleep 20
           while [ $I -lt $MAX ]; do
             I=$((I+1))
@@ -30,9 +30,12 @@ jobs:
             echo "Status: $STATUS | Events: $COUNT"
             if [ "$COUNT" -gt 0 ] && [ "$STARTED" = "false" ]; then STARTED=true; STABLE=0; fi
             if [ "$STARTED" = "true" ] && [ "$STATUS" = "idle" ]; then
-              if [ "$COUNT" -eq "$LAST" ]; then STABLE=$((STABLE+1)); [ $STABLE -ge 3 ] && { echo "Done"; break; }; else STABLE=0; fi
+              if [ "$COUNT" -eq "$LAST" ]; then STABLE=$((STABLE+1)); [ $STABLE -ge 3 ] && { echo "Done"; DONE=true; break; }; else STABLE=0; fi
             fi
             LAST=$COUNT
             { [ "$STATUS" = "error" ] || [ "$STATUS" = "failed" ]; } && { echo "Failed"; exit 1; }
             sleep 30
           done
+          # running out of tries used to end the loop and the job green, as if the update had
+          # finished; it has not, so say so
+          if [ "$DONE" != "true" ]; then echo "::error::The Data Bank session $SID was still working after $MAX polls"; exit 1; fi
