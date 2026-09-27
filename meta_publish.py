@@ -16,14 +16,43 @@ token made from a long-lived user token does not expire.
 
 Both uploads send the file itself (resumable upload to rupload.facebook.com), so the video
 never has to be public anywhere first. Best-effort by design: without the secrets it says so
-and stops, and any failure is printed and exits 0, so a Meta problem can never cost the
-day's YouTube upload that ran before it.
+and stops, and any failure exits 0, so a Meta problem can never cost the day's YouTube upload
+that ran before it. A failure is never quiet, though: it is a ::warning:: on the run's page
+and a line in the run's summary, because a green run with no Reel on Instagram is what hid
+the problem before.
+
+--check posts nothing. It confirms that the token is a Page token for META_PAGE_ID and that
+META_IG_USER_ID is the Instagram account linked to that Page, and exits 1 if either is not
+so (meta_check.yml runs it every week, so an expired token shows before a day is lost).
+
+The fallback caption line is worded for the desk (UPSC_DESK, set by each repository's
+workflow): the Essay desk's aspirants write an essay, the others an answer.
 """
 import argparse, json, os, re, sys, time, urllib.error, urllib.parse, urllib.request
 
 VERSION = os.environ.get("META_GRAPH_VERSION", "v23.0")
 GRAPH = f"https://graph.facebook.com/{VERSION}"
-EVALUATE = "Write your own answer and get it evaluated: evaluate.upscdesk.com (link in bio)"
+EVALUATE = "Write your own {work} and get it evaluated: evaluate.upscdesk.com (link in bio)"
+
+
+def desk_work(text=""):
+    """'essay' on the Essay desk, 'answer' elsewhere: UPSC_DESK first, else the caption itself"""
+    desk = os.environ.get("UPSC_DESK", "").strip().lower()
+    if desk:
+        return "essay" if desk == "essay" else "answer"
+    return "essay" if re.search(r"(?i)#UPSCEssay\b|\bthis essay\b", text) else "answer"
+
+
+def warn(msg):
+    """a warning GitHub shows on the run's page, and a line in the run's summary"""
+    print(f"::warning::{msg}")
+    summary = os.environ.get("GITHUB_STEP_SUMMARY")
+    if summary:
+        try:
+            with open(summary, "a", encoding="utf-8") as f:
+                f.write(f"- {msg}\n")
+        except OSError:
+            pass
 
 
 def _req(url, data=None, headers=None, method=None, body=None, timeout=300):
@@ -66,7 +95,7 @@ def caption_from(meta_path):
     text = re.sub(r"(?i)#shorts\b", "#reels", text)
     text = re.sub(r"\n{3,}", "\n\n", text).strip()
     if "evaluate.upscdesk.com" not in text:
-        text += "\n\n" + EVALUATE
+        text += "\n\n" + EVALUATE.format(work=desk_work(text))
     return text[:2150]          # Instagram allows 2,200 characters
 
 
@@ -97,33 +126,66 @@ def config():
     return token, page, ig
 
 
+def check(token, page, ig):
+    """Posts nothing. Problems as a list; empty means the next Reel can go out."""
+    problems = []
+    if not token: return ["META_PAGE_TOKEN is not set"]
+    if not page: problems.append("META_PAGE_ID is not set")
+    if not ig: problems.append("META_IG_USER_ID is not set")
+    try:
+        me = _get("me", token, fields="id,name")
+        if page and me.get("id") != page:
+            problems.append("the token is not a Page token for META_PAGE_ID (it belongs to something else)")
+        else:
+            print("meta: the token is the Page's own:", me.get("name"))
+    except Exception as e:
+        problems.append(f"the token was refused: {e}")
+        return problems
+    if page:
+        try:
+            linked = (_get(page, token, fields="name,instagram_business_account").get("instagram_business_account") or {}).get("id")
+            if not linked: problems.append("no Instagram professional account is linked to the Page")
+            elif ig and linked != ig: problems.append("META_IG_USER_ID is not the Instagram account linked to the Page")
+        except Exception as e:
+            problems.append(f"the Page could not be read: {e}")
+    if ig:
+        try:
+            print("meta: Instagram:", _get(ig, token, fields="username").get("username"))
+        except Exception as e:
+            problems.append(f"the Instagram account could not be read: {e}")
+    return problems
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--video"); ap.add_argument("--meta")
-    ap.add_argument("--check", action="store_true", help="check the token and ids; post nothing")
+    ap.add_argument("--check", action="store_true", help="check the token and ids; post nothing; exit 1 on a problem")
     a = ap.parse_args()
     token, page, ig = config()
-    if not token:
-        print("meta: not configured (no META_PAGE_TOKEN); skipping Instagram and Facebook")
-        return 0
     if a.check:
-        print("meta: Page:", _get(page, token, fields="name").get("name"))
-        print("meta: Instagram:", _get(ig, token, fields="username").get("username"))
+        problems = check(token, page, ig)
+        for p in problems:
+            print(f"::error::meta check: {p}")
+        if not problems:
+            print("meta: check passed; Instagram and Facebook are ready")
+        return 1 if problems else 0
+    if not token:
+        warn("meta: not configured (no META_PAGE_TOKEN); the Reel did not go to Instagram or Facebook")
         return 0
     caption = caption_from(a.meta)
     for name, fn, target in (("Instagram", instagram, ig), ("Facebook", facebook, page)):
         if not target:
-            print(f"meta: no id for {name}; skipped"); continue
+            warn(f"meta: no id for {name}; the Reel did not go there"); continue
         try:
             print(f"meta: {name} reel published: {fn(a.video, caption, token, target)}")
         except Exception as e:
-            print(f"meta: {name} failed (the rest of the run is unaffected): {e}")
+            warn(f"meta: {name} failed (the rest of the run is unaffected): {e}")
     return 0
 
 
 if __name__ == "__main__":
     try:
         sys.exit(main())
-    except Exception as e:                       # never fail the caller
-        print(f"meta: skipped after an error: {e}")
-        sys.exit(0)
+    except Exception as e:                       # never fail the caller, but never quietly
+        warn(f"meta: skipped after an error: {e}")
+        sys.exit(1 if "--check" in sys.argv else 0)

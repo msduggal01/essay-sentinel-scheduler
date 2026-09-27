@@ -541,7 +541,9 @@ def main():
         ru = subprocess.run(up, capture_output=True, text=True)
         ok = ru.returncode == 0 and "URL:" in ru.stdout
         for ln in ru.stdout.splitlines():
-            if ln.startswith("meta:"): print("     " + ln)
+            # a ::warning:: line must reach the log unindented, or GitHub will not show it
+            if ln.startswith("::"): print(ln)
+            elif ln.startswith("meta:"): print("     " + ln)
         if ok and not crossposted:
             crossposted = True
         print(f"     upload {'scheduled ' + pub if pub else 'public now'}: "
