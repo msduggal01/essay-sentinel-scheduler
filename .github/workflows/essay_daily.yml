@@ -235,8 +235,11 @@ jobs:
           test -f video_script.json || { echo "no essay script today"; exit 1; }
           (cd remotion && npm ci --no-audit --no-fund --silent)
           python3 ops/reel_props.py essay video_script.json reel_props.json
-          python3 ops/reel_cut.py reel_props.json reel.mp4 reel_meta.txt
-          OUT=$(python3 upload_short.py --video reel.mp4 --meta reel_meta.txt --playlist "Essay Desk - Shorts" --privacy public --crosspost)
+          # --cover: the Reel's cover, a still of the Reel where its hook is whole on screen, and
+          # that moment in ms beside it; the YouTube thumbnail and the Instagram and Facebook cover
+          python3 ops/reel_cut.py reel_props.json reel.mp4 reel_meta.txt --cover reel_cover.png
+          OUT=$(python3 upload_short.py --video reel.mp4 --meta reel_meta.txt --playlist "Essay Desk - Shorts" --privacy public --crosspost \
+            --cover reel_cover.png --thumb-offset "$(cat reel_cover_ms.txt 2>/dev/null)")
           echo "$OUT"
           echo "$OUT" | grep -q "URL:" || { echo "the Reel was not confirmed on YouTube"; exit 1; }
       - name: Say so when the Reel did not go out
@@ -255,6 +258,7 @@ jobs:
             reel.mp4
             reel_props.json
             reel_meta.txt
+            reel_cover.png
             remotion/public/reel_props.json
           if-no-files-found: ignore
           retention-days: 14

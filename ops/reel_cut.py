@@ -3,11 +3,18 @@
 reel_cut.py - voice the Reel, time every element to its word, render it, write its metadata.
 
   python3 ops/reel_cut.py reel_props.json reel.mp4 reel_meta.txt
+  python3 ops/reel_cut.py reel_props.json reel.mp4 reel_meta.txt --cover reel_cover.png
 
 The narration is built from the Reel's own lines, so what is said is what is on screen. It
 goes to ElevenLabs (eleven_v3, /with-timestamps, the desk's voice from VOICE_ID), is quickened
 with ffmpeg (v3 ignores its speed setting), and each beat is the moment its cue phrase is
 spoken in the character alignment. Then Remotion renders the DeskShort composition.
+
+--cover also renders the Reel's cover: a still of the same composition, with the same props,
+at the moment the hook is whole on screen (cover_at), and writes that moment in milliseconds
+beside it (reel_cover_ms.txt beside reel_cover.png) for Instagram's thumb_offset if the cover
+itself cannot be sent. Instagram took the Reel's first frame, which is nearly empty (the
+topic has only begun to type itself), so the Reels showed a blank cover.
 
 Env: ELEVENLABS_API_KEY, VOICE_ID (the desk's voice), REEL_TEMPO (default 1.30).
 
@@ -140,8 +147,30 @@ def meta(d, path):
         f.write(title + "\n\n" + desc + "\n\nTags: " + ", ".join(tags) + "\n")
 
 
+def cover_at(d, B):
+    """The second the hook is whole on screen, from the beats the cut already has: the topic
+    typed out in full (it finishes 0.3 s before hook2) and the question under it settled,
+    before the next scene arrives. Sociology: the headline and 'Is this Sociology?'."""
+    nxt = B.get("literal") if d.get("desk") == "essay" else B.get("news")
+    at = B["hook2"] + 0.7                      # the spring has settled and the cursor gone
+    if nxt is not None:
+        at = min(at, nxt - 0.05)
+    return round(max(0.0, at), 2)
+
+
+def render_cover(pj, png, at, seconds):
+    """one frame of the Reel itself, as a 1080 x 1920 PNG"""
+    frame = max(0, min(int(round(at * 30)), int(round(seconds * 30)) - 1))
+    subprocess.run(["npx", "remotion", "still", "src/index.ts", "DeskShort", os.path.abspath(png), f"--props={os.path.abspath(pj)}",
+                    f"--frame={frame}", "--image-format=png", "--log=error"], cwd=REMOTION, check=True)
+
+
 def main():
-    src, out, meta_path = sys.argv[1], sys.argv[2], sys.argv[3]
+    args = sys.argv[1:]
+    cover = None
+    if "--cover" in args:
+        i = args.index("--cover"); cover = args[i + 1]; del args[i:i + 2]
+    src, out, meta_path = args[0], args[1], args[2]
     props = json.load(open(src)); d = props["data"]
     text, cues = narration(d)
     print("reel_cut: narration:", text)
@@ -165,6 +194,19 @@ def main():
                    cwd=REMOTION, check=True)
     meta(d, meta_path)
     print("reel_cut: made", out)
+    if cover:
+        # render cover: the Reel is made either way, so a failed still is a warning, and the
+        # moment is kept for Instagram to pick that frame itself
+        at = cover_at(d, B)
+        open(os.path.splitext(cover)[0] + "_ms.txt", "w").write(str(int(round(at * 1000))))
+        try:
+            render_cover(pj, cover, at, seconds)
+            print(f"reel_cut: cover {cover}, the frame at {at}s")
+        except Exception as e:
+            msg = f"the Reel's cover was not rendered ({e}); Instagram falls back to the frame at {at}s"
+            print(f"::warning::{msg}")
+            if os.environ.get("GITHUB_STEP_SUMMARY"):
+                open(os.environ["GITHUB_STEP_SUMMARY"], "a").write(f"- {msg}\n")
 
 
 if __name__ == "__main__":

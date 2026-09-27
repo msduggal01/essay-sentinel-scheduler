@@ -16,7 +16,14 @@ USAGE
       --meta  build/issue_030/short/short_meta.txt \
       --privacy private          # private | unlisted | public  (default: private)
       [--thumbnail path.png]
+      [--cover reel_cover.png --thumb-offset 4750]
       [--no-playlist]
+
+--cover is the Reel's cover (a 1080 x 1920 still of the Reel where its hook is whole on
+screen): it is the YouTube thumbnail when no --thumbnail is given, and with --crosspost it
+goes to meta_publish.py as the Instagram and Facebook cover. On the old Short's path
+--thumbnail (make_short.make_cover's card) is the cover as well. A thumbnail or cover that
+does not take is a warning on the run and a line in its summary; the upload stands.
 
 A vertical video <= 3 min with #Shorts in the title/description is auto-classified
 by YouTube as a Short. Prints the uploaded video URL.
@@ -24,6 +31,18 @@ by YouTube as a Short. Prints the uploaded video URL.
 import argparse
 import os
 import sys
+
+
+def warn(msg):
+    """a warning GitHub shows on the run's page, and a line in the run's summary"""
+    print(f"::warning::{msg}")
+    summary = os.environ.get("GITHUB_STEP_SUMMARY")
+    if summary:
+        try:
+            with open(summary, "a", encoding="utf-8") as f:
+                f.write(f"- {msg}\n")
+        except OSError:
+            pass
 
 try:
     from google.oauth2.credentials import Credentials
@@ -110,6 +129,10 @@ def main():
                     help="playlist to file the Short under (Essay reuse passes its own)")
     ap.add_argument("--crosspost", action="store_true",
                     help="after YouTube, also post it as an Instagram and Facebook Reel (meta_publish.py)")
+    ap.add_argument("--cover", help="the Reel's cover PNG: the YouTube thumbnail unless --thumbnail is given, and the "
+                                    "Instagram and Facebook cover with --crosspost")
+    ap.add_argument("--thumb-offset", default="",
+                    help="the cover's moment in ms, passed to meta_publish.py for Instagram's fallback frame")
     ap.add_argument("--no-playlist", action="store_true",
                     help="skip adding the Short to the Shorts playlist")
     args = ap.parse_args()
@@ -156,13 +179,16 @@ def main():
         vid = response["id"]
         print("Uploaded. Video ID:", vid)
 
-        if args.thumbnail and os.path.exists(args.thumbnail):
+        thumb = args.thumbnail or args.cover
+        if thumb and os.path.exists(thumb):
             try:
                 yt.thumbnails().set(videoId=vid,
-                                    media_body=MediaFileUpload(args.thumbnail)).execute()
+                                    media_body=MediaFileUpload(thumb)).execute()
                 print("Thumbnail set.")
             except Exception as ex:
-                print("Thumbnail set failed (Short still uploaded):", str(ex))
+                warn(f"the Short is on YouTube, but its thumbnail was not set: {str(ex)[:200]}")
+        elif thumb:
+            warn(f"no thumbnail at {thumb}; YouTube picks the Short's frame itself")
 
         if not args.no_playlist:
             try:
@@ -180,8 +206,12 @@ def main():
         if args.crosspost:
             # its own process, best-effort: Instagram or Facebook can never undo the YouTube upload
             import subprocess
+            cover = args.cover or args.thumbnail
             mp = subprocess.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), "meta_publish.py"),
-                                 "--video", args.video, "--meta", args.meta], capture_output=True, text=True)
+                                 "--video", args.video, "--meta", args.meta]
+                                + (["--cover", cover] if cover else [])
+                                + (["--thumb-offset", str(args.thumb_offset)] if str(args.thumb_offset).strip() else []),
+                                capture_output=True, text=True)
             print((mp.stdout + mp.stderr).strip())
     except Exception as ex:
         # best-effort: never break the daily run because of the Short
