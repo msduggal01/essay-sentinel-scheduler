@@ -3,7 +3,7 @@
 carousel_props.py - the day's Instagram and Facebook carousel, built from the day's own content.
 
   python3 ops/carousel_props.py decide --desk gs --date 2026-09-21 [--force] [--format A|C|D]
-  python3 ops/carousel_props.py fetch  --desk gs --date 2026-09-21 --out content [--from-run ID]
+  python3 ops/carousel_props.py fetch  --desk gs --date 2026-09-21 --content content [--from-run ID]
   python3 ops/carousel_props.py build  --desk gs --date 2026-09-21 --format A --content content \
                                        --archive carousel/archive --out carousel_out
   python3 ops/carousel_props.py pinned carousel/pinned/pin1_what.json --out carousel_out
@@ -296,6 +296,7 @@ def gs_prelims_facts(p):
         items = [{"head": fit(n.get("title"), 40), "text": fit(n.get("sub"), 110)} for n in c.get("nodes", [])]
         items = [x for x in items if x["head"] and x["text"]]
         sec = plain(c.get("section"))
+        sec = "Prelims" if re.fullmatch(r"[A-Z]\d+", sec) else sec      # a syllabus code, not a name
         if len(items) >= 3 and c.get("title"):
             out.append({"kind": "prelims", "label": sec if len(sec) <= 3 else sec.title(), "title": plain(c["title"]), "items": items[:4]})
     return out
@@ -760,7 +761,7 @@ def main():
     ap.add_argument("--force", action="store_true")
     ap.add_argument("--format", default="")
     ap.add_argument("--from-run", default="")
-    ap.add_argument("--content", default="content")
+    ap.add_argument("--content", default="content", help="the day's content files: fetch writes them, build reads them")
     ap.add_argument("--archive", default="carousel/archive")
     ap.add_argument("--out", default="carousel_out")
     a = ap.parse_args()

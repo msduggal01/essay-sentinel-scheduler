@@ -92,7 +92,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           IN_RUN: ${{ inputs.from_run }}
-        run: python3 ops/carousel_props.py fetch --desk "$DESK" --date "${{ steps.day.outputs.DATE }}" --out content --from-run "$IN_RUN"
+        run: python3 ops/carousel_props.py fetch --desk "$DESK" --date "${{ steps.day.outputs.DATE }}" --content content --from-run "$IN_RUN"
 
       - name: The slides' words and the caption (and the day's facts for Sunday)
         id: build
