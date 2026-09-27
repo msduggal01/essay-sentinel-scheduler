@@ -324,7 +324,9 @@ def _wrap_e(style, hook, ev, payoff, cta):
 
 
 def es_flagship(data, ess, style):
-    topic, decode = ess["topic"], ess["decode"] or "what it truly asks"
+    # the topic usually ends in a full stop already ("...the relief camp does."), which made
+    # the line read "does.. This is not a slogan"
+    topic, decode = ess["topic"].rstrip(" ."), ess["decode"] or "what it truly asks"
     a0 = ess["anchors"][0] if ess["anchors"] else "a sourced anchor"
     dim = ess["dimensions"][0] if ess["dimensions"] else "many lenses"
     line = (f"{topic}. This is not a slogan. It is a full essay. Decode it: {decode}. "
@@ -332,7 +334,8 @@ def es_flagship(data, ess, style):
     ev = e_scene(topic, "DECODE THIS TOPIC", "THE THESIS", decode, [a0], line)
     return _wrap_e(style, "You read a one-line topic. A topper reads a full essay.",
                    ev, "Decode, argue one thesis, build the dimensions, close with a vision.",
-                   "Two full model essays, free on Telegram.")
+                   # the two model essays are the paid brief; what is free on Telegram is this
+                   "The full masterclass is free on Telegram.")
 
 
 def es_dimensions(data, ess, style):

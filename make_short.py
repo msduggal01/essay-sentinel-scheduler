@@ -136,7 +136,7 @@ BRAND_COPY = {
         meta_lead="Every event is Sociology - Paper 1 or Paper 2 - if you know where to look.",
         meta_offer="Full model answers, skeletons and the quotation arsenal:",
         hashtags="#UPSC #Sociology #UPSCMains #IAS #Shorts #SociologyOptional",
-        tags_seed=["UPSC", "Sociology", "UPSC Mains 2026", "IAS", "Shorts", "Sociology Optional"]),
+        tags_seed=["UPSC", "Sociology", "UPSC Mains", "IAS", "Shorts", "Sociology Optional"]),
     "essay": dict(
         wordmark="THE ESSAY DESK", tagline="UPSC ESSAY, DECODED",
         handle="@upscdesk_essay", subscribe_env="ESSAY_SUBSCRIBE_URL",
@@ -154,7 +154,7 @@ BRAND_COPY = {
         meta_lead="Every topic is a full essay once you can decode it.",
         meta_offer="Two full model essays, dimension maps and the anchor bank:",
         hashtags="#UPSC #Essay #UPSCEssay #IAS #Shorts #UPSCMains",
-        tags_seed=["UPSC", "Essay", "UPSC Essay", "IAS", "Shorts", "UPSC Mains 2026"]),
+        tags_seed=["UPSC", "Essay", "UPSC Essay", "IAS", "Shorts", "UPSC Mains"]),
 }
 BRAND = BRAND_COPY["sociology"]
 
@@ -515,7 +515,10 @@ def narration_text(script):
 # Audio + timing
 # ----------------------------------------------------------------------------
 def normalize_tts(text):
-    return re.sub(r'(\d)\s*-\s*(\d)', r'\1 to \2', text)
+    text = re.sub(r'(\d)\s*-\s*(\d)', r'\1 to \2', text)
+    # the desk's address spoken as an address, as in render_video.py
+    text = re.sub(r"\b([a-z]+)@upscdesk\.com\b", r"\1 at upscdesk dot com", text, flags=re.I)
+    return re.sub(r"\bteam\s+dot\s+upscdesk\s+dot\s+com\b", "team at upscdesk dot com", text, flags=re.I)
 
 
 def ffprobe_dur(path):
@@ -807,7 +810,7 @@ def generate_script(events, style, issue_no):
         'paper and at least one thinker)}], "payoff": str (<=22 words: every event is a '
         'syllabus theme - Paper 1 or Paper 2 - and that is how a 14 becomes a 19), '
         '"cta": str (<=9 words, point to Telegram)}')
-    body = {"model": os.environ.get("SHORT_SCRIPT_MODEL", "claude-sonnet-4-6"),
+    body = {"model": os.environ.get("SHORT_SCRIPT_MODEL", "claude-sonnet-5"),
             "max_tokens": 900, "system": sys_prompt,
             "messages": [{"role": "user", "content": user_prompt}]}
     req = urllib.request.Request("https://api.anthropic.com/v1/messages",
@@ -910,6 +913,12 @@ def main():
         script, src = data["short_script"], "data.short_script"
     elif args.script_file and os.path.exists(args.script_file):
         script, src = json.load(open(args.script_file)), f"file:{args.script_file}"
+    elif args.desk == "essay":
+        # The two writers below are Sociology's ("Paper 1 or Paper 2", "how a 14 becomes a
+        # 19"). The daily run always hands the Essay desk its own script (--script-file, from
+        # build_daily_shorts.py); run without one, the Essay Short still gets essay words.
+        import build_daily_shorts as bds
+        script, src = bds.es_flagship(data, bds.parse_essay(data), style), "essay flagship"
     else:
         events = extract_events(slides, 2)
         if not args.no_llm:
