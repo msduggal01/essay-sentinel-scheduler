@@ -236,12 +236,12 @@ const Sociology: React.FC<ReelProps & {th: Theme}> = ({beats: B, data: d, th}) =
 		<>
 			{/* 1. the headline types itself, then the question the series asks */}
 			<div style={{position: 'absolute', left: 64, right: 110, top: 230}}>
-				<Pop at={B.hook} until={B.question}>
+				<Pop at={B.hook} until={B.question - 0.45}>
 					<div style={{fontFamily: COND, fontWeight: 800, fontSize: 96, lineHeight: 1.0, color: th.cream}}>
 						<Typed text={d.headline} from={B.hook} to={B.hook2 - 0.2} color={th.cream} cursor={th.accent} />
 					</div>
 				</Pop>
-				<Pop at={B.hook2} until={B.question}>
+				<Pop at={B.hook2} until={B.question - 0.45}>
 					<div style={{fontFamily: COND, fontWeight: 800, fontSize: 96, color: th.accent, marginTop: 10}}>{d.hook2}</div>
 				</Pop>
 			</div>
@@ -250,8 +250,8 @@ const Sociology: React.FC<ReelProps & {th: Theme}> = ({beats: B, data: d, th}) =
 			<div style={{position: 'absolute', left: 64, right: 110, top: 590}}>
 				{steps.map((s, i) => (
 					<React.Fragment key={s.k}>
-						{i > 0 ? <Pop at={s.at - 0.55} until={B.question}><DownArrow at={s.at - 0.55} len={84} color={th.accent} /></Pop> : null}
-						<Pop at={s.at} until={B.question}>
+						{i > 0 ? <Pop at={s.at - 0.55} until={B.question - 0.45}><DownArrow at={s.at - 0.55} len={84} color={th.accent} /></Pop> : null}
+						<Pop at={s.at} until={B.question - 0.45}>
 							<div style={{background: i === 2 ? th.accent : th.panel, border: `2px solid ${th.accent}${i === 2 ? '' : '66'}`, borderRadius: 20, padding: '22px 28px'}}>
 								<div style={{fontFamily: COND, fontWeight: 800, fontSize: 30, letterSpacing: 4, color: i === 2 ? th.night : th.accent}}>{s.k}</div>
 								<div style={{fontFamily: COND, fontWeight: 800, fontSize: 70, lineHeight: 1.0, color: i === 2 ? th.night : th.cream, marginTop: 4}}>{s.title}</div>

@@ -43,7 +43,14 @@ def first(d, typ):
 
 
 def paper_of(d):
-    txt = json.dumps(d.get("slides", [])[:8])
+    """the lead event's paper: its topic_title bullets first, then its question slide"""
+    sl = d.get("slides", [])
+    i = next((k for k, s in enumerate(sl) if s.get("type") == "topic_title"), 0)
+    block = []
+    for s in sl[i:]:
+        if block and s.get("type") == "topic_title": break
+        block.append(s)
+    txt = json.dumps([{k: s.get(k) for k in ("heading", "bullets")} for s in block])
     m = re.search(r"\bPaper\s*(1|2|I{1,2}|one|two)\b", txt, re.I)
     if not m:
         return "1"
@@ -62,6 +69,7 @@ SOC_SCHEMA = """{
  "thinker": {"title": "Guy Standing", "sub": "The Precariat, 2011"},
  "question": "Is the gig worker a new class? Answer with reference to platform work in India.",
  "directive": "Discuss",
+ "ask": "Discuss whether the gig worker is a new class.",
  "average": [
   {"text": "Gig workers face many issues", "note": "no concept"},
   {"text": "like low pay in Bengaluru.", "note": "only describes"},
@@ -75,8 +83,9 @@ SOC_SCHEMA = """{
 }
 (That is an example from another day, to show the shape and the length of every field; write
 today's. Limits in characters: headline 50, news.title 30, news.sub 50, concept.title 28,
-concept.sub 46, thinker.title 28, thinker.sub 40, question 190, average text 30 and note 16,
-better 52. average and better have exactly three items. directive is one of: DIRECTIVES.)"""
+concept.sub 46, thinker.title 28, thinker.sub 40, question 190 (without its directive), ask 70
+(the question as spoken, starting with the directive), average text 30 and note 16, better 46.
+average and better have exactly three items. directive is one of: DIRECTIVES.)"""
 
 ESSAY_SCHEMA = """{
  "topic": "A ladder is also a list of the people it leaves below.",
@@ -149,9 +158,6 @@ def clean_words(v, where, errs):
     elif isinstance(v, str):
         if re.search(r"[—–!]|--", v): errs.append(f"{where}: dash or exclamation mark")
         if re.search(r"\bscripts?\b", v, re.I): errs.append(f"{where}: says 'script'")
-        # the person writing the answer is an aspirant; a student in the news is a student
-        if where.startswith(("reply.average", "reply.better")) and re.search(r"\b(students?|candidates?)\b", v, re.I):
-            errs.append(f"{where}: say aspirant")
 
 
 def cap(v, n, where, errs):
@@ -171,12 +177,17 @@ def check_soc(c, d):
     if t and t.split()[-1].lower() not in names.lower(): errs.append(f"thinker.title: {t!r} is not a thinker in the script")
     cap(c.get("question"), 190, "question", errs)
     if c.get("directive") not in DIRECTIVES: errs.append(f"directive: must be one of {DIRECTIVES}")
+    elif c.get("question") and c["directive"].lower() in c["question"].lower():
+        errs.append("question: leave the directive out; it is shown on its own")
+    cap(c.get("ask"), 70, "ask", errs)
+    if c.get("directive") and c.get("ask") and not c["ask"].lower().startswith(c["directive"].lower()):
+        errs.append("ask: must start with the directive")
     av, bt = c.get("average") or [], c.get("better") or []
     if len(av) != 3: errs.append("average: exactly three lines")
     for i, l in enumerate(av):
         cap((l or {}).get("text"), 30, f"average[{i}].text", errs); cap((l or {}).get("note"), 16, f"average[{i}].note", errs)
     if len(bt) != 3: errs.append("better: exactly three lines")
-    for i, l in enumerate(bt): cap(l, 52, f"better[{i}]", errs)
+    for i, l in enumerate(bt): cap(l, 46, f"better[{i}]", errs)
     return errs
 
 

@@ -9,11 +9,11 @@ goes to ElevenLabs (eleven_v3, /with-timestamps, the desk's voice from VOICE_ID)
 with ffmpeg (v3 ignores its speed setting), and each beat is the moment its cue phrase is
 spoken in the character alignment. Then Remotion renders the DeskShort composition.
 
-Env: ELEVENLABS_API_KEY, VOICE_ID (the desk's voice), REEL_TEMPO (default 1.34).
+Env: ELEVENLABS_API_KEY, VOICE_ID (the desk's voice), REEL_TEMPO (default 1.40).
 """
 import base64, json, os, re, subprocess, sys, urllib.request
 
-TEMPO = float(os.environ.get("REEL_TEMPO", "1.34"))
+TEMPO = float(os.environ.get("REEL_TEMPO", "1.40"))
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REMOTION = os.path.join(HERE, "remotion")
 NUM = {7: "seven", 8: "eight", 9: "nine", 17: "seventeen", 18: "eighteen", 19: "nineteen", 20: "twenty"}
@@ -45,12 +45,11 @@ def narration(d):
     if d["desk"] == "sociology":
         add(sent(d["headline"]), "hook", sent(d["headline"])[:20])
         add("Is this Sociology?", "hook2")
-        add(f"It is Paper {'one' if d.get('paper') == '1' else 'two'}.")
         add(f"The news, {say(d['news']['title'])}.", "news", "The news")
         add(f"The concept, {say(d['concept']['title'])}.", "concept", "The concept")
         add(f"The thinker, {say(d['thinker']['title'])}.", "thinker", "The thinker")
-        add(f"The question. {sent(d['question'])}", "question", "The question")
-        add(f"{d['directive']}.", "directive", d["directive"])
+        add("The question.", "question", "The question")
+        add(sent(d.get("ask") or d["directive"]), "directive", d["directive"])
         add("Most aspirants open like this.", "write", "Most aspirants open")
         add(" ".join(say(l["text"]) for l in d["average"]).rstrip(".,;") + ".")
         notes(d)
@@ -58,7 +57,7 @@ def narration(d):
         for i, l in enumerate(d["better"]):
             add(sent(l), f"f{i}", say(l)[:18])
         add(f"Name the concept, and {NUM.get(d['from'], d['from'])} becomes {NUM.get(d['to'], d['to'])} out of twenty.", "jump", "Name the concept")
-        add("Write this answer, then get it evaluated at evaluate dot upscdesk dot com.", "cta", "Write this answer")
+        add("Write it, then get it evaluated at evaluate dot upscdesk dot com.", "cta", "Write it, then")
         add("Five free every month.", "free", "Five free")
     else:
         add(sent(d["topic"]), "hook", sent(d["topic"])[:20])
@@ -71,13 +70,13 @@ def narration(d):
             cues.append((f"l{i}", t))
         count = {3: "three", 4: "four", 5: "five", 6: "six", 7: "seven"}.get(len(ls), str(len(ls)))
         parts.append(f"Read it through {count} lenses: " + ", ".join(ls[:-1]) + f" and {ls[-1]}.")
-        add("Now the opening most write.", "open", "the opening most write")
+        add("Most open like this.", "open", "Most open like")
         add(" ".join(say(l["text"]) for l in d["average"]).rstrip(".,;") + ".")
         notes(d)
         add("Open with a claim instead.", "fix", "Open with a claim")
         for i, l in enumerate(d["better"]):
             add(sent(l), f"f{i}", say(l)[:18])
-        add("Write this essay, then get it evaluated at evaluate dot upscdesk dot com.", "cta", "Write this essay")
+        add("Write it, then get it evaluated at evaluate dot upscdesk dot com.", "cta", "Write it, then")
         add("Five free every month.", "free", "Five free")
     return " ".join(parts), cues
 
@@ -117,7 +116,7 @@ def fit_title(base, tail):
 
 def meta(d, path):
     if d["desk"] == "sociology":
-        title = fit_title(f"Is this Sociology? {d['news']['title']}: {d['concept']['title']}", " | UPSC in 30s #Shorts")
+        title = fit_title(f"Is this Sociology? {d['news']['title']}: {d['concept']['title']}", " | UPSC in 60s #Shorts")
         desc = (f"{d['headline']} Read it as sociology: {d['concept']['title']}, with {d['thinker']['title']}.\n\n"
                 f"The question: {d['question']} {d['directive']}.\n\n"
                 "Write this answer, then get it evaluated: https://evaluate.upscdesk.com (five free every month)\n"
