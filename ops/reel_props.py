@@ -127,12 +127,16 @@ with an image or a claim and holds the topic's tension; its three lines read as 
 
 
 def call(system, user):
-    body = {"model": MODEL, "max_tokens": 2000, "system": system, "messages": [{"role": "user", "content": user}]}
+    """One request. Thinking is always on and counts against max_tokens, so the ceiling is
+    generous and the effort low: the reply itself is a few hundred tokens."""
+    body = {"model": MODEL, "max_tokens": 16000, "system": system, "output_config": {"effort": os.environ.get("REEL_EFFORT", "low")},
+            "messages": [{"role": "user", "content": user}]}
     req = urllib.request.Request("https://api.anthropic.com/v1/messages", data=json.dumps(body).encode(),
                                  headers={"x-api-key": os.environ["ANTHROPIC_API_KEY"], "anthropic-version": "2023-06-01",
                                           "content-type": "application/json"})
-    r = json.loads(urllib.request.urlopen(req, timeout=180).read())
-    text = "".join(c.get("text", "") for c in r.get("content", []))
+    r = json.loads(urllib.request.urlopen(req, timeout=600).read())
+    text = "".join(c.get("text", "") for c in r.get("content", []) if c.get("type") == "text")
+    print(f"reel_props: {MODEL}: stop {r.get('stop_reason')}, {(r.get('usage') or {}).get('output_tokens')} output tokens, {len(text)} chars of text")
     m = re.search(r"\{.*\}", text, re.S)
     return json.loads(m.group(0)) if m else {}
 
