@@ -103,6 +103,14 @@ jobs:
         # cost the day's video.
         run: python3 humanize.py video_script.json --diff || echo "humanising skipped; the original narration stands"
 
+      - name: Keep the day's script (the Reel job and any rerun read it)
+        uses: actions/upload-artifact@v4
+        with:
+          name: script
+          path: video_script.json
+          if-no-files-found: ignore
+          retention-days: 30
+
       - name: Heartbeat, so the schedule is never disabled again
         # GitHub disables a repository's scheduled workflows after 60 days with no commits.
         # The last commit here was 7 July, so both workflows were switched off on 6
@@ -135,12 +143,64 @@ jobs:
           echo "YouTube: $URL"
           python3 post_telegram.py --json video_script.json --youtube "$URL" --thumb build/issue_$ISSUE/thumb.png
 
-      # ---- Additive: the day's Essay Shorts (best-effort, never breaks the main run) ----
-      # Builds 2 Essay Shorts from today's topic (1 voiced in the Essay voice, 1 silent
-      # with the music bed), Claret & Gold theme, and uploads them scheduled across the
-      # day. --limit 2 keeps within YouTube's ~6-upload/day free quota shared with the
-      # Sociology desk. Raise/remove --limit after a quota increase is approved.
-      - name: Build and upload the day's Essay Shorts (staggered)
+  # ---- The day's Reel: the new format (remotion/src/DeskShort.tsx), one a day ----
+  # Its own job after the day's run, with its own time budget; best effort throughout. The
+  # Reel goes to YouTube as a Short and to Instagram and Facebook as a Reel (--crosspost).
+  # If it cannot be made or uploaded, the old Essay Short goes out in its place.
+  reel:
+    needs: run_essay_sentinel
+    if: ${{ always() && needs.run_essay_sentinel.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: System packages (ffmpeg, fonts, headless Chrome libraries)
+        run: bash ops/chrome_deps.sh && pip install -q -r requirements.txt
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: script
+      - name: The day's Reel
+        id: reel
+        continue-on-error: true
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          VOICE_ID: ${{ secrets.ESSAY_VOICE_ID || 'gad8DmXGyu7hwftX9JqI' }}
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+          META_PAGE_TOKEN: ${{ secrets.META_PAGE_TOKEN }}
+          META_PAGE_ID: ${{ secrets.META_PAGE_ID }}
+          META_IG_USER_ID: ${{ secrets.META_IG_USER_ID }}
+        run: |
+          test -f video_script.json || { echo "no essay script today"; exit 1; }
+          (cd remotion && npm ci --no-audit --no-fund --silent)
+          python3 ops/reel_props.py essay video_script.json reel_props.json
+          python3 ops/reel_cut.py reel_props.json reel.mp4 reel_meta.txt
+          OUT=$(python3 upload_short.py --video reel.mp4 --meta reel_meta.txt --playlist "Essay Desk - Shorts" --privacy public --crosspost)
+          echo "$OUT"
+          echo "$OUT" | grep -q "URL:" || { echo "the Reel was not confirmed on YouTube"; exit 1; }
+      - name: Keep the Reel and its words
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reel
+          path: |
+            reel.mp4
+            reel_props.json
+            reel_meta.txt
+            remotion/public/reel_props.json
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: The old Short, only when the new Reel did not go out
+        if: ${{ steps.reel.outcome != 'success' }}
         continue-on-error: true
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -154,8 +214,4 @@ jobs:
           META_PAGE_ID: ${{ secrets.META_PAGE_ID }}
           META_IG_USER_ID: ${{ secrets.META_IG_USER_ID }}
         run: |
-          if [ -f video_script.json ]; then
-            python3 build_daily_shorts.py video_script.json --desk essay --limit 2
-          else
-            echo "No essay video script today; skipping Essay Shorts (non-blocking)."
-          fi
+          if [ -f video_script.json ]; then python3 build_daily_shorts.py video_script.json --desk essay --limit 1; fi
