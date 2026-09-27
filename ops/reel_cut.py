@@ -9,11 +9,11 @@ goes to ElevenLabs (eleven_v3, /with-timestamps, the desk's voice from VOICE_ID)
 with ffmpeg (v3 ignores its speed setting), and each beat is the moment its cue phrase is
 spoken in the character alignment. Then Remotion renders the DeskShort composition.
 
-Env: ELEVENLABS_API_KEY, VOICE_ID (the desk's voice), REEL_TEMPO (default 1.28).
+Env: ELEVENLABS_API_KEY, VOICE_ID (the desk's voice), REEL_TEMPO (default 1.34).
 """
 import base64, json, os, re, subprocess, sys, urllib.request
 
-TEMPO = float(os.environ.get("REEL_TEMPO", "1.28"))
+TEMPO = float(os.environ.get("REEL_TEMPO", "1.34"))
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REMOTION = os.path.join(HERE, "remotion")
 NUM = {7: "seven", 8: "eight", 9: "nine", 17: "seventeen", 18: "eighteen", 19: "nineteen", 20: "twenty"}
@@ -36,6 +36,12 @@ def narration(d):
     def add(text, beat=None, cue=None):
         if beat: cues.append((beat, cue or text))
         parts.append(text)
+    def notes(d):
+        """the margin notes in one breath, each still firing its own strike"""
+        ns = [say(l["note"]).rstrip(".") for l in d["average"]]
+        for i, n in enumerate(ns):
+            cues.append((f"s{i}", n.lower()))
+        parts.append(", ".join(ns).capitalize() + ".")
     if d["desk"] == "sociology":
         add(sent(d["headline"]), "hook", sent(d["headline"])[:20])
         add("Is this Sociology?", "hook2")
@@ -47,8 +53,7 @@ def narration(d):
         add(f"{d['directive']}.", "directive", d["directive"])
         add("Most aspirants open like this.", "write", "Most aspirants open")
         add(" ".join(say(l["text"]) for l in d["average"]).rstrip(".,;") + ".")
-        for i, l in enumerate(d["average"]):
-            add(sent(l["note"].capitalize()), f"s{i}", say(l["note"].capitalize()))
+        notes(d)
         add("Now write it as sociology.", "fix", "write it as sociology")
         for i, l in enumerate(d["better"]):
             add(sent(l), f"f{i}", say(l)[:18])
@@ -59,14 +64,16 @@ def narration(d):
         add(sent(d["topic"]), "hook", sent(d["topic"])[:20])
         add("Could you write this essay?", "hook2", "Could you write")
         add(f"Most read it as {say(d['literal']).rstrip('.').lower()}.", "literal", "Most read it")
-        add(f"It asks something else. {sent(d['decode'])}", "decode", "It asks")
-        add("Read it through its lenses.", "lenses", "through its lenses")
-        for i, l in enumerate(d["lenses"]):
-            add(f"{say(l['title'])}.", f"l{i}", say(l["title"]))
-        add("Now the opening. Most write this.", "open", "Most write this")
+        dec = sent(d["decode"]); add(f"It asks: {dec[0].lower() + dec[1:]}", "decode", "It asks")
+        ls = [say(l["title"]).lower() for l in d["lenses"]]
+        cues.append(("lenses", "Read it through"))
+        for i, t in enumerate(ls):
+            cues.append((f"l{i}", t))
+        count = {3: "three", 4: "four", 5: "five", 6: "six", 7: "seven"}.get(len(ls), str(len(ls)))
+        parts.append(f"Read it through {count} lenses: " + ", ".join(ls[:-1]) + f" and {ls[-1]}.")
+        add("Now the opening most write.", "open", "the opening most write")
         add(" ".join(say(l["text"]) for l in d["average"]).rstrip(".,;") + ".")
-        for i, l in enumerate(d["average"]):
-            add(sent(l["note"].capitalize()), f"s{i}", say(l["note"].capitalize()))
+        notes(d)
         add("Open with a claim instead.", "fix", "Open with a claim")
         for i, l in enumerate(d["better"]):
             add(sent(l), f"f{i}", say(l)[:18])
@@ -97,22 +104,33 @@ def beats_from(text, al, cues):
     return B, round(ends[-1] / TEMPO + 1.4, 2)
 
 
+def fit_title(base, tail):
+    """YouTube allows 100 characters; drop the label before cutting the words, then cut at a word"""
+    for t in (base + tail, base + " #Shorts"):
+        if len(t) <= 100: return t
+    words, out = base.split(), ""
+    for w in words:
+        if len(out + " " + w) + 11 > 100: break
+        out = (out + " " + w).strip()
+    return out.rstrip(",:;") + "... #Shorts"
+
+
 def meta(d, path):
     if d["desk"] == "sociology":
-        title = f"Is this Sociology? {d['news']['title']}: {d['concept']['title']} | UPSC in 30s #Shorts"
+        title = fit_title(f"Is this Sociology? {d['news']['title']}: {d['concept']['title']}", " | UPSC in 30s #Shorts")
         desc = (f"{d['headline']} Read it as sociology: {d['concept']['title']}, with {d['thinker']['title']}.\n\n"
                 f"The question: {d['question']} {d['directive']}.\n\n"
                 "Write this answer, then get it evaluated: https://evaluate.upscdesk.com (five free every month)\n"
                 "Telegram: https://t.me/upscdesk_sociology\n\n#UPSC #Sociology #SociologyOptional #UPSCMains #IAS #Shorts")
         tags = ["UPSC", "Sociology Optional", "UPSC Mains", d["concept"]["title"], d["thinker"]["title"], "answer writing"]
     else:
-        title = f"Could you write this essay? {d['topic'][:60]} | UPSC in 30s #Shorts"
+        title = fit_title(f"Could you write this essay? {d['topic']}", " | UPSC Essay #Shorts")
         desc = (f"\"{d['topic']}\"\n\nWhat it asks: {d['decode']}\n\nLenses: " + ", ".join(l["title"] for l in d["lenses"]) + ".\n\n"
                 "Write this essay, then get it evaluated: https://evaluate.upscdesk.com (five free every month)\n"
                 "Telegram: https://t.me/upscdesk_essay\n\n#UPSC #Essay #UPSCEssay #UPSCMains #IAS #Shorts")
         tags = ["UPSC", "UPSC Essay", "Essay writing", "UPSC Mains"] + [l["title"] for l in d["lenses"][:3]]
     with open(path, "w") as f:
-        f.write(title[:100] + "\n\n" + desc + "\n\nTags: " + ", ".join(tags) + "\n")
+        f.write(title + "\n\n" + desc + "\n\nTags: " + ", ".join(tags) + "\n")
 
 
 def main():

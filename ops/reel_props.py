@@ -149,7 +149,9 @@ def clean_words(v, where, errs):
     elif isinstance(v, str):
         if re.search(r"[—–!]|--", v): errs.append(f"{where}: dash or exclamation mark")
         if re.search(r"\bscripts?\b", v, re.I): errs.append(f"{where}: says 'script'")
-        if re.search(r"\b(students?|candidates?)\b", v, re.I): errs.append(f"{where}: say aspirant")
+        # the person writing the answer is an aspirant; a student in the news is a student
+        if where.startswith(("reply.average", "reply.better")) and re.search(r"\b(students?|candidates?)\b", v, re.I):
+            errs.append(f"{where}: say aspirant")
 
 
 def cap(v, n, where, errs):
