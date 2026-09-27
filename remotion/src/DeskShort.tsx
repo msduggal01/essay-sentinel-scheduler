@@ -1,7 +1,7 @@
 import React from 'react';
 import {AbsoluteFill, Audio, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig} from 'remotion';
 import {loadFont} from '@remotion/google-fonts/BarlowCondensed';
-import {loadFont as loadHand} from '@remotion/google-fonts/Kalam';
+import {loadFont as loadHand} from '@remotion/google-fonts/Handlee';
 
 /*
  * One Sociology or Essay Reel, 1080 x 1920, cut from the day's own script.
@@ -23,7 +23,7 @@ import {loadFont as loadHand} from '@remotion/google-fonts/Kalam';
  * captions, and each scene sits in the middle of what is left instead of hugging the top.
  */
 const {fontFamily: COND} = loadFont('normal', {weights: ['600', '700', '800'], subsets: ['latin']});
-const {fontFamily: HAND} = loadHand('normal', {weights: ['400', '700'], subsets: ['latin']});
+const {fontFamily: HAND} = loadHand('normal', {weights: ['400'], subsets: ['latin']});
 const SANS = "'Liberation Sans', Arial, Helvetica, sans-serif";
 
 /* accent is the brand's own colour (the eyebrow, the progress, the hub, the offer); hi is the
