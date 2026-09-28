@@ -211,7 +211,7 @@ def check_answer(p, paras, where, th, st, texts):
     return sum(words(x["text"]) for x in paras if isinstance(x, dict) and isinstance(x.get("text"), str))
 
 
-def check_pipeline(p, nodes, where, width, texts):
+def check_pipeline(p, nodes, where, width, texts, h=28 * mm):
     if not isinstance(nodes, list) or not 3 <= len(nodes) <= 5:
         p.add(where, "must list 3 to 5 boxes"); return None
     out = []
@@ -220,7 +220,7 @@ def check_pipeline(p, nodes, where, width, texts):
             p.add(f"{where} box {i}", "needs 'label', 'title' and 'text'"); return None
         out.append((nd["label"].upper(), plain(nd["title"]), plain(nd["text"])))
         texts += [(f"{where} box {i}", nd["title"], "label"), (f"{where} box {i}", nd["text"], "label"), (f"{where} box {i}", nd["label"], "label")]
-    for i, what, n in pipeline_fit(out, width):
+    for i, what, n in pipeline_fit(out, width, h):
         p.add(f"{where} box {i + 1}", f"the {what} is cut off (it has room for {n} line{'s' if n > 1 else ''}); shorten it")
     return out
 
@@ -401,7 +401,7 @@ def validate(d):
             if isinstance(e.get("band_sub"), str): texts.append((f"{where} band_sub", e["band_sub"], "label"))
             if isinstance(e.get("lifted"), str) and e["lifted"].lower().startswith("what lifted"):
                 p.add(f"{where} lifted", "leave out 'What lifted this essay:'; the builder prints it")
-            check_pipeline(p, e.get("architecture"), f"{where} architecture", CW - 20, texts)
+            check_pipeline(p, e.get("architecture"), f"{where} architecture", CW - 20, texts, h=25 * mm)
             ln = need(p, e, "lenses", where, dict)
             if ln is not None:
                 hub, sp = ln.get("hub"), ln.get("spokes")
@@ -534,10 +534,10 @@ def sociology_story(d, th, st):
         if e.get("comparative_lens"): s += [lens_box(e["comparative_lens"], th, st), Spacer(1, 9)]
         t = e["thinker"]
         head = f"<b>{to_html(t['name'])}</b>" + (f" ({to_html(t['dates'])})" if t.get("dates") else "")
+        # one block with the practice box, so the practice never sits alone on a page
         s.append(KeepTogether([Paragraph("THINKER OF THE DAY", st["labelA"]), Spacer(1, 3),
-                               box([Paragraph(head, st["h3"]), Paragraph(to_html(t["text"]), st["small"])], th, fill=th["soft"], rule=th["primary"], pad=9)]))
-        s.append(Spacer(1, 10))
-        s.append(motive(e["practice"], th, st))
+                               box([Paragraph(head, st["h3"]), Paragraph(to_html(t["text"]), st["small"])], th, fill=th["soft"], rule=th["primary"], pad=9),
+                               Spacer(1, 10), motive(e["practice"], th, st)]))
     return s
 
 

@@ -261,12 +261,19 @@ HUB_SPOKE_SUB_LINES, HUB_LINES = 2, 2
 HUB_BOX_W, HUB_W = 38 * mm, 50 * mm
 
 
-def pipeline_fit(nodes, width):
-    """[(node index, what is cut off)] for a Pipeline of this width"""
+PIPE_MIN_BASELINE = 3 * mm     # the last line of a box's text sits at least this far above its bottom edge
+
+
+def pipeline_fit(nodes, width, h=28 * mm):
+    """[(node index, what is cut off, lines it has room for)] for a Pipeline of this width and height"""
     n = len(nodes); bw = (width - (n - 1) * 9 * mm) / n; out = []
     for i, (label, title, sub) in enumerate(nodes):
-        if len(wrap_text(title, F["sansB"], 9.6, bw - 6 * mm)) > PIPE_TITLE_LINES: out.append((i, "title", PIPE_TITLE_LINES))
-        if len(wrap_text(sub, F["sans"], 7.2, bw - 6 * mm)) > PIPE_SUB_LINES: out.append((i, "text", PIPE_SUB_LINES))
+        nt = len(wrap_text(title, F["sansB"], 9.6, bw - 6 * mm)); ns = len(wrap_text(sub, F["sans"], 7.2, bw - 6 * mm))
+        room = PIPE_SUB_LINES      # a title on two lines leaves less room for the text under it
+        while room > 1 and h - 10 * mm - 4.2 * mm * min(nt, PIPE_TITLE_LINES) - 3.2 * mm * (room - 1) < PIPE_MIN_BASELINE:
+            room -= 1
+        if nt > PIPE_TITLE_LINES: out.append((i, "title", PIPE_TITLE_LINES))
+        if ns > room: out.append((i, "text", room))
         if pdfmetrics.stringWidth(label, F["sansB"], 6.8) > bw - 6 * mm: out.append((i, "label", 1))
     return out
 

@@ -19,14 +19,16 @@ introduction in twelve minutes), and topics, Section A first. For each topic:
 - section, archetype ("Abstract" or "Socio-economic"), theme (the theme family, for the band),
   band_sub (for example "Two model essays on a brief day; this is the first"), topic (verbatim),
   asks (the decode in one or two short sentences, for the table on page 1), and pill (the trend:
-  the years the family appeared and its heat, for example "Set in 2022 and 2024 · rising").
+  the years the family appeared and its heat, for example "Set in 2022 and 2024 · rising"; at
+  most about 28 characters, so with three years write "2021, 2023, 2024 · rising").
 - skeleton: [label, text] pairs from the strip: Decode, Thesis, and Ways in (the hook options).
 - sets_apart: one sentence on what the top essays on this topic do; the builder prints "What
   sets the top essays apart:" before it.
 - architecture: four boxes, OPENING, DECODE, LENSES, CLOSE, each a short title and a few words.
 - lenses: hub (the thesis in a few words) and spokes, the six to nine dimensions in the order the
   essay uses them, each [lens, a few words].
-- essay: the model essay in full, one entry per paragraph, 1,000 to 1,200 words. The margin
+- essay: the model essay in full, one entry per paragraph, 1,000 to 1,200 words (aim for 1,100
+  to 1,180 and count with len(text.split()) before the first builder run; never over 1,200). The margin
   commentary becomes numbered notes: mark the phrase each note speaks to as [[phrase|n]], give a
   paragraph at most two notes, each at most 25 words, tagged AVOID, WHY IT SCORES, CURRENT
   AFFAIRS, EXAMPLE or ADD. Notes stay selective and varied as Step 4 says.
