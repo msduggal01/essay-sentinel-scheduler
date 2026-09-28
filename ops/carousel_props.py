@@ -107,6 +107,14 @@ def fit(t, limit):
     return t if t and len(t) <= limit else ""
 
 
+def source_fit(t, limit):
+    """A source name that fits: whole if it can, else without its bracketed aside
+    ("(nine-judge Bench)", "(assent 17 August 2026)"), else nothing. Never cut mid-name."""
+    whole = fit(t, limit)
+    if whole: return whole
+    return fit(re.sub(r"\s*\([^)]*\)", "", plain(t)).strip(" ,;"), limit)
+
+
 def sentence(t):
     t = plain(t).rstrip(" .")
     return (t[:1].upper() + t[1:] + ".") if t else ""
@@ -339,8 +347,8 @@ def gs_A(m, date):
     ftag = gs_tag(plain(first.get("source")))
     moves = wb.get("moves") or []
     steps = [{"k": "THE NEWS", "head": day_str(when) if when else fit(item.get("headline"), 60), "body": fit(item.get("headline"), 120)},
-             {"k": "THE SYLLABUS", "head": fit(f"{paper}: {topic}", 60), "body": fit(maps, 110)},
-             {"k": "THE CASE" if ftag == "CASE" else "THE ANCHOR", "head": fit(first.get("source"), 60), "body": fit(first.get("line"), 110)},
+             {"k": "THE SYLLABUS", "head": fit(re.sub(r",?\s*\b(ten|fifteen|twenty|\d+)[ -]marks?\b.*$", "", f"{paper}: {topic}", flags=re.I), 60), "body": fit(maps, 110)},
+             {"k": "THE CASE" if ftag == "CASE" else "THE ANCHOR", "head": source_fit(first.get("source"), 72), "body": fit(first.get("line"), 110)},
              {"k": "THE ANSWER", "head": fit(moves[-1].get("head") if moves else "", 60), "body": fit(moves[-1].get("body") if moves else "", 110)}]
     for st in steps:
         if st["body"] == st["head"] or problems(st["body"], allow): st["body"] = ""
@@ -369,7 +377,7 @@ def gs_A(m, date):
     # the three lines that score
     rows = []
     for r in (led.get("rows") or [])[:3]:
-        src, line, why = fit(r.get("source"), 64), fit(r.get("line"), 130), fit(r.get("why"), 80)
+        src, line, why = source_fit(r.get("source"), 90), fit(r.get("line"), 130), fit(r.get("why"), 80)
         if not (src and line): continue
         row = {"source": src, "line": line}
         if gs_tag(src): row["tag"] = gs_tag(src)
