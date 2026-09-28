@@ -62,8 +62,22 @@ jobs:
 
       - name: Create agent session
         id: create_session
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ESSAY_AGENT_ID: ${{ secrets.ESSAY_AGENT_ID }}
+          ESSAY_ENV_ID: ${{ secrets.ESSAY_ENV_ID }}
         run: |
-          RESPONSE=$(curl -s -X POST https://api.anthropic.com/v1/sessions -H "x-api-key: ${{ secrets.ANTHROPIC_API_KEY }}" -H "anthropic-version: 2023-06-01" -H "anthropic-beta: managed-agents-2026-04-01" -H "Content-Type: application/json" -d "{\"agent\":\"${{ secrets.ESSAY_AGENT_ID }}\",\"environment_id\":\"${{ secrets.ESSAY_ENV_ID }}\"}")
+          # The brief v2 kit, mounted read-only at /mnt/session/uploads/brief/ (the sandbox network cannot
+          # reach GitHub). If the kit cannot be attached the list is empty, the session starts as
+          # before, and the agent builds that day's brief in the old design and says so in its log.
+          python3 brief/mount_kit.py resources > kit_resources.json || echo "[]" > kit_resources.json
+          BODY=$(python3 -c "import json, os; print(json.dumps({'agent': os.environ['ESSAY_AGENT_ID'], 'environment_id': os.environ['ESSAY_ENV_ID'], 'resources': json.load(open('kit_resources.json'))}))")
+          RESPONSE=$(curl -s -X POST https://api.anthropic.com/v1/sessions -H "x-api-key: ${{ secrets.ANTHROPIC_API_KEY }}" -H "anthropic-version: 2023-06-01" -H "anthropic-beta: managed-agents-2026-04-01" -H "Content-Type: application/json" -d "$BODY")
+          if ! echo "$RESPONSE" | python3 -c "import sys,json; json.load(sys.stdin)['id']" 2>/dev/null; then
+            echo "::warning::the session was refused with the kit attached; starting it without the kit"
+            RESPONSE=$(curl -s -X POST https://api.anthropic.com/v1/sessions -H "x-api-key: ${{ secrets.ANTHROPIC_API_KEY }}" -H "anthropic-version: 2023-06-01" -H "anthropic-beta: managed-agents-2026-04-01" -H "Content-Type: application/json" -d "{\"agent\":\"${{ secrets.ESSAY_AGENT_ID }}\",\"environment_id\":\"${{ secrets.ESSAY_ENV_ID }}\"}")
+          fi
+          python3 brief/mount_kit.py cleanup 2>/dev/null || true
           SESSION_ID=$(echo "$RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
           echo "SESSION_ID=$SESSION_ID" >> $GITHUB_OUTPUT
           echo "Session: $SESSION_ID"
