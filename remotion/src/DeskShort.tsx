@@ -2,6 +2,7 @@ import React from 'react';
 import {AbsoluteFill, Audio, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig} from 'remotion';
 import {loadFont} from '@remotion/google-fonts/BarlowCondensed';
 import {loadFont as loadHand} from '@remotion/google-fonts/Handlee';
+import {loadFont as loadMark} from '@remotion/google-fonts/Kalam';
 
 /*
  * One Sociology or Essay Reel, 1080 x 1920, cut from the day's own script.
@@ -11,8 +12,9 @@ import {loadFont as loadHand} from '@remotion/google-fonts/Handlee';
  * answer written out line by line on a ruled sheet, struck line by line in the examiner's
  * red, and rewritten. Each desk tells its own story:
  *
- *   sociology  news -> concept -> thinker, then the average opening struck and rewritten
- *              as sociology, and the mark moving from the band's floor to its top
+ *   sociology  news -> concept -> thinker, then the question as set, the average opening
+ *              struck and rewritten as sociology, and the mark moving from the band's floor
+ *              to its top
  *   essay      the topic as set, the literal reading struck for the real one, the lenses
  *              fanning out from the topic, then a flat opening line rewritten
  *
@@ -21,22 +23,28 @@ import {loadFont as loadHand} from '@remotion/google-fonts/Handlee';
  * Layout keeps to the phone's safe zone: nothing is written in the top SAFE_TOP or the bottom
  * 380 px of the 1080 x 1920 frame, where Instagram and YouTube lay their own buttons and
  * captions, and each scene sits in the middle of what is left instead of hugging the top.
+ * Each scene has faded out before the next one arrives.
+ *
+ * The same file serves both desks and is kept identical in the Sociology and Essay repos.
  */
 const {fontFamily: COND} = loadFont('normal', {weights: ['600', '700', '800'], subsets: ['latin']});
+// the aspirant's lines (the opening on the sheet, the rewrite) in Handlee, the owner's reference hand
 const {fontFamily: HAND} = loadHand('normal', {weights: ['400'], subsets: ['latin']});
+// the examiner's red notes and score on the Sociology sheet stay in Kalam, as on its long video
+const {fontFamily: KALAM} = loadMark('normal', {weights: ['400', '700'], subsets: ['latin']});
 const SANS = "'Liberation Sans', Arial, Helvetica, sans-serif";
 
 /* accent is the brand's own colour (the eyebrow, the progress, the hub, the offer); hi is the
  * highlight for what is gained or put in (the rewrite, the real reading, the lens count, the
  * mark that moves), the role lime plays on the other desks' videos. paper, ink, rule and
- * sheetTitle dress the ruled answer sheet. */
+ * sheetTitle dress the ruled answer sheet; mark is the examiner's hand on it. */
 type Theme = {night: string; deep: string; panel: string; line: string; accent: string; accentDeep: string; hi: string; cream: string; grey: string;
-	paper: string; ink: string; rule: string; sheetTitle: string; label: string; badge: string};
+	paper: string; ink: string; rule: string; sheetTitle: string; label: string; badge: string; mark: string};
 const THEMES: Record<string, Theme> = {
 	// Steel and Amber, the Sociology Desk's own tokens (its highlight is its amber)
 	sociology: {night: '#0C1A2E', deep: '#142038', panel: '#1B3050', line: '#3C587F', accent: '#F59E0B', accentDeep: '#B26E00', hi: '#F59E0B',
 		cream: '#EAF1FA', grey: '#8FA5C2', paper: '#FBF8F0', ink: '#1E2A3A', rule: '#C9D6E6', sheetTitle: '#7A869A',
-		label: 'Sociology Optional', badge: 'ANSWER EVALUATION'},
+		label: 'Sociology Optional', badge: 'ANSWER EVALUATION', mark: KALAM},
 	// Claret and Gold, the Essay Desk's own tokens. The darks are claret #7A2D3A taken down
 	// towards black (75, 60 and 30 per cent) and its line is claret lifted towards white, so
 	// the frame reads as claret, not as a brown; the gold stays the owner's, lifted a step so
@@ -44,27 +52,32 @@ const THEMES: Record<string, Theme> = {
 	// sheet is parchment with claret-black ink and rose rules, not Sociology's navy and steel.
 	essay: {night: '#1F0B0F', deep: '#311217', panel: '#552029', line: '#A26C75', accent: '#D4A53A', accentDeep: '#8A6300', hi: '#FF9F1C',
 		cream: '#F6EFE3', grey: '#D0B5BA', paper: '#FBF6EC', ink: '#2A1419', rule: '#E6CCC4', sheetTitle: '#9A6B74',
-		label: 'UPSC Essay', badge: 'ESSAY EVALUATION'},
+		label: 'UPSC Essay', badge: 'ESSAY EVALUATION', mark: HAND},
 };
 const RED = '#D2493F';
 const SAFE_TOP = 236;              // the brand line sits here; every scene starts below 330
 const SAFE_BOTTOM = 1920 - 380;    // nothing is written below this
-const MID = (330 + SAFE_BOTTOM) / 2;
+const ZONE_TOP = 330;
+const MID = (ZONE_TOP + SAFE_BOTTOM) / 2;
+// a scene has faded out (0.35 s) before the next one arrives
+const OUT = 0.4;
 
 export type ReelProps = {beats: Record<string, number>; data: any; voice?: string; seconds?: number};
 
 const clamp = {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'} as const;
 const useT = () => {const f = useCurrentFrame(); const {fps} = useVideoConfig(); return f / fps;};
 
-/* arrives on its beat with a short spring, and (optionally) leaves on another */
-const Pop: React.FC<{at: number; until?: number; y?: number; children: React.ReactNode; style?: React.CSSProperties}> =
-({at, until, y = 24, children, style}) => {
+/* arrives on its beat with a short spring, and (optionally) leaves on another. With `keep` it
+   holds its place while unseen, so a block centred on the screen does not move as its parts arrive */
+const Pop: React.FC<{at: number; until?: number; y?: number; children: React.ReactNode; style?: React.CSSProperties; keep?: boolean}> =
+({at, until, y = 24, children, style, keep}) => {
 	const frame = useCurrentFrame(); const {fps} = useVideoConfig();
 	const t = frame / fps;
-	if (t < at) return null;
+	const hidden = keep ? <div style={{...style, visibility: 'hidden'}}>{children}</div> : null;
+	if (t < at) return hidden;
 	const s = spring({frame: frame - at * fps, fps, config: {damping: 16, stiffness: 190, mass: 0.5}});
 	const out = until === undefined ? 1 : interpolate(t, [until, until + 0.35], [1, 0], clamp);
-	if (out <= 0) return null;
+	if (out <= 0) return hidden;
 	return <div style={{...style, opacity: Math.min(1, s * 1.4) * out, transform: `translateY(${(1 - s) * y}px)`}}>{children}</div>;
 };
 
@@ -145,11 +158,26 @@ const Chrome: React.FC<{th: Theme; voice?: string; eyebrow: string; seconds: num
 	);
 };
 
+/* one scene, centred between ZONE_TOP and SAFE_BOTTOM (and clear of the buttons on the right);
+   with `until` the whole scene fades out together, finished before the next scene arrives */
+const Zone: React.FC<{until?: number; children: React.ReactNode}> = ({until, children}) => {
+	const t = useT();
+	const out = until === undefined ? 1 : interpolate(t, [until, until + 0.35], [1, 0], clamp);
+	if (out <= 0) return null;
+	return (
+		<div style={{position: 'absolute', left: 64, right: 110, top: ZONE_TOP, bottom: 1920 - SAFE_BOTTOM, display: 'flex', flexDirection: 'column',
+			justifyContent: 'center', opacity: out}}>
+			{children}
+		</div>
+	);
+};
+
 const Kicker: React.FC<{c: string; children: React.ReactNode}> = ({c, children}) => (
 	<div style={{fontFamily: COND, fontWeight: 800, fontSize: 32, letterSpacing: 5, color: c}}>{children}</div>
 );
 
-/* the ruled sheet: lines written out one after another, then struck with margin notes */
+/* the ruled sheet: lines written out one after another, then struck with margin notes. A line
+   over 30 characters is set a little smaller so it keeps clear of its margin note. */
 const Sheet: React.FC<{th: Theme; title: string; score?: string; lines: {text: string; note?: string}[]; write: number; writeEnd: number;
 	strike: number; gap: number; strikeAt?: number[]}> = ({th, title, score, lines, write, writeEnd, strike, gap, strikeAt}) => {
 	const total = lines.reduce((a, l) => a + l.text.length, 0) || 1;
@@ -161,7 +189,7 @@ const Sheet: React.FC<{th: Theme; title: string; score?: string; lines: {text: s
 			<div style={{position: 'absolute', left: 50, top: 0, bottom: 0, width: 3, background: '#E7A3A0'}} />
 			<div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6}}>
 				<span style={{fontFamily: COND, fontWeight: 800, fontSize: 30, letterSpacing: 3, color: th.sheetTitle}}>{title}</span>
-				{score ? <span style={{fontFamily: HAND, fontWeight: 700, fontSize: 52, color: RED}}>{score}</span> : null}
+				{score ? <span style={{fontFamily: th.mark, fontWeight: 700, fontSize: 52, color: RED}}>{score}</span> : null}
 			</div>
 			{lines.map((l, i) => {
 				const a = write + (writeEnd - write) * (acc / total);
@@ -170,13 +198,13 @@ const Sheet: React.FC<{th: Theme; title: string; score?: string; lines: {text: s
 				const at = strikeAt?.[i] ?? strike + i * gap;
 				return (
 					<div key={i} style={{display: 'grid', gridTemplateColumns: '1fr 200px', alignItems: 'center', minHeight: 70}}>
-						<div style={{fontFamily: HAND, fontSize: 42, lineHeight: 1.6, whiteSpace: 'nowrap', overflow: 'visible'}}>
+						<div style={{fontFamily: HAND, fontSize: l.text.length > 30 ? Math.round(42 * 30 / l.text.length) : 42, lineHeight: 1.6, whiteSpace: 'nowrap', overflow: 'visible'}}>
 							<Struck at={at}><Typed text={l.text} from={a} to={b} color={th.ink} /></Struck>
 						</div>
 						<div style={{textAlign: 'right', transform: 'rotate(-4deg)'}}>
 							{l.note ? (
 								<Pop at={at + 0.3} y={8}>
-									<span style={{fontFamily: HAND, fontWeight: 700, fontSize: 31, color: RED, whiteSpace: 'nowrap'}}>{l.note}</span>
+									<span style={{fontFamily: th.mark, fontWeight: 700, fontSize: 31, color: RED, whiteSpace: 'nowrap'}}>{l.note}</span>
 								</Pop>
 							) : null}
 						</div>
@@ -188,13 +216,13 @@ const Sheet: React.FC<{th: Theme; title: string; score?: string; lines: {text: s
 };
 
 /* the lines that replace the struck ones, each arriving with an arrow */
-const Rewrite: React.FC<{th: Theme; kicker: string; lines: string[]; at: number; gap: number; atList?: number[]}> = ({th, kicker, lines, at, gap, atList}) => (
+const Rewrite: React.FC<{th: Theme; kicker: string; lines: string[]; at: number; gap: number; atList?: number[]; keep?: boolean}> = ({th, kicker, lines, at, gap, atList, keep}) => (
 	<div>
-		<Pop at={at - 0.2}><Kicker c={th.hi}>{kicker}</Kicker></Pop>
+		<Pop at={at - 0.2} keep={keep}><Kicker c={th.hi}>{kicker}</Kicker></Pop>
 		{lines.map((l, i) => {
 			const a = atList?.[i] ?? at + i * gap;
 			return (
-				<Pop key={i} at={a} y={10}>
+				<Pop key={i} at={a} y={10} keep={keep}>
 					<div style={{display: 'flex', alignItems: 'flex-start', gap: 14, marginTop: 16}}>
 						<div style={{paddingTop: 18}}><RightArrow at={a} len={52} color={th.hi} /></div>
 						<div style={{flex: 1, fontFamily: HAND, fontWeight: 700, fontSize: 46, lineHeight: 1.26, color: th.cream}}>
@@ -208,11 +236,11 @@ const Rewrite: React.FC<{th: Theme; kicker: string; lines: string[]; at: number;
 );
 
 /* the mark moving from the band's floor to its top, with a bar */
-const MarkJump: React.FC<{th: Theme; at: number; from: number; to: number; out: number; label: string}> = ({th, at, from, to, out, label}) => {
+const MarkJump: React.FC<{th: Theme; at: number; from: number; to: number; out: number; label: string; keep?: boolean}> = ({th, at, from, to, out, label, keep}) => {
 	const t = useT();
 	const n = interpolate(t, [at, at + 1.0], [from, to], clamp);
 	return (
-		<Pop at={at}>
+		<Pop at={at} keep={keep}>
 			<Kicker c={th.accent}>{label}</Kicker>
 			<div style={{display: 'flex', alignItems: 'baseline', gap: 18, marginTop: 2}}>
 				<span style={{fontFamily: COND, fontWeight: 800, fontSize: 120, color: th.grey, lineHeight: 0.85}}>
@@ -229,22 +257,49 @@ const MarkJump: React.FC<{th: Theme; at: number; from: number; to: number; out: 
 	);
 };
 
-const CTA: React.FC<{th: Theme; at: number; free?: number; line: string; top?: number; badge?: string}> = ({th, at, free, line, top = 1120, badge}) => (
-	<div style={{position: 'absolute', left: 64, right: 110, top, textAlign: 'center'}}>
-		<Pop at={at}>
+/* the offer: placed at `top`, or (inline) in a centred scene, holding its place until it arrives */
+const CTA: React.FC<{th: Theme; at: number; free?: number; line: string; top?: number; badge?: string; inline?: boolean}> = ({th, at, free, line, top = 1120, badge, inline}) => (
+	<div style={inline ? {textAlign: 'center', marginTop: 56} : {position: 'absolute', left: 64, right: 110, top, textAlign: 'center'}}>
+		<Pop at={at} keep={inline}>
 			<div style={{display: 'inline-block', background: th.accent, color: th.night, fontFamily: COND, fontWeight: 800, fontSize: 38,
 				letterSpacing: 4, padding: '6px 18px', borderRadius: 8}}>{badge || th.badge}</div>
 			<div style={{fontFamily: COND, fontWeight: 800, fontSize: line.length > 40 ? 54 : 64, lineHeight: 1.04, color: th.cream, marginTop: 14}}>{line}</div>
 			<div style={{display: 'inline-block', background: th.accent, color: th.night, fontFamily: COND, fontWeight: 800, fontSize: 52,
 				padding: '12px 28px', borderRadius: 12, marginTop: 14}}>evaluate.upscdesk.com</div>
 		</Pop>
-		{free !== undefined ? <Pop at={free} y={6}><div style={{fontFamily: SANS, fontSize: 32, color: th.accent, marginTop: 12}}>Five free every month</div></Pop> : null}
+		{free !== undefined ? <Pop at={free} y={6} keep={inline}><div style={{fontFamily: SANS, fontSize: 32, color: th.accent, marginTop: 12}}>Five free every month</div></Pop> : null}
 	</div>
 );
 
 /* ---------------------------------------------------------------- Sociology */
-// the Sociology scenes were laid out under a brand line at 74 px; they move down with it
-const SOC_DY = 150;
+/* the question exactly as set, its directive lit in place when the voice says it; a long
+   question is set smaller so the sheet and the rewrite still fit under it */
+const Question: React.FC<{th: Theme; q: string; directive: string; at: number}> = ({th, q, directive, at}) => {
+	const t = useT();
+	const k = directive ? q.toLowerCase().indexOf(directive.toLowerCase()) : -1;
+	const lit = interpolate(t, [at, at + 0.35], [0, 1], clamp);
+	const size = q.length <= 140 ? 50 : q.length <= 220 ? 44 : q.length <= 300 ? 40 : 36;
+	return (
+		<div style={{fontFamily: COND, fontWeight: 700, fontSize: size, color: th.cream, lineHeight: 1.08, marginTop: 6}}>
+			{k < 0 ? q : (
+				<>
+					{q.slice(0, k)}
+					<span style={{background: lit > 0 ? th.accent : 'transparent', color: lit > 0.5 ? th.night : th.cream, borderRadius: 6, padding: '0 6px',
+						boxDecorationBreak: 'clone', WebkitBoxDecorationBreak: 'clone'}}>{q.slice(k, k + directive.length)}</span>
+					{q.slice(k + directive.length)}
+				</>
+			)}
+		</div>
+	);
+};
+
+// a line of the chain holds its one line: a title over 26 characters, a headline over 40 or
+// a sub over 46 is set smaller rather than wrapped, so the whole chain stays in the safe zone
+const fit = (s: string | undefined, size: number, chars: number, min: number) => {
+	const n = (s || '').length;
+	return n > chars ? Math.max(min, Math.floor(size * chars / n)) : size;
+};
+
 const Sociology: React.FC<ReelProps & {th: Theme}> = ({beats: B, data: d, th}) => {
 	const t = useT();
 	const steps = [
@@ -252,69 +307,73 @@ const Sociology: React.FC<ReelProps & {th: Theme}> = ({beats: B, data: d, th}) =
 		{k: 'THE CONCEPT', ...d.concept, at: B.concept},
 		{k: 'THE THINKER', ...d.thinker, at: B.thinker},
 	];
+	// each scene has left (its fade finished) before the next one arrives
+	const hookOut = B.question - OUT, sheetOut = B.jump - OUT;
+	const head = fit(d.headline, 96, 40, 80);
 	return (
 		<>
-			{/* 1. the headline types itself, then the question the series asks */}
-			<div style={{position: 'absolute', left: 64, right: 110, top: 230 + SOC_DY}}>
-				<Pop at={B.hook} until={B.question - 0.45}>
-					<div style={{fontFamily: COND, fontWeight: 800, fontSize: 96, lineHeight: 1.0, color: th.cream}}>
-						<Typed text={d.headline} from={B.hook} to={B.hook2 - 0.2} color={th.cream} cursor={th.accent} />
-					</div>
-				</Pop>
-				<Pop at={B.hook2} until={B.question - 0.45}>
-					<div style={{fontFamily: COND, fontWeight: 800, fontSize: 96, color: th.accent, marginTop: 10}}>{d.hook2}</div>
-				</Pop>
-			</div>
-
-			{/* 2. the desk's chain as a pipeline: news, then concept, then thinker */}
-			<div style={{position: 'absolute', left: 64, right: 110, top: 590 + SOC_DY}}>
-				{steps.map((s, i) => (
-					<React.Fragment key={s.k}>
-						{i > 0 ? <Pop at={s.at - 0.55} until={B.question - 0.45}><DownArrow at={s.at - 0.55} len={84} color={th.accent} /></Pop> : null}
-						<Pop at={s.at} until={B.question - 0.45}>
-							<div style={{background: i === 2 ? th.accent : th.panel, border: `2px solid ${th.accent}${i === 2 ? '' : '66'}`, borderRadius: 20, padding: '22px 28px'}}>
-								<div style={{fontFamily: COND, fontWeight: 800, fontSize: 30, letterSpacing: 4, color: i === 2 ? th.night : th.accent}}>{s.k}</div>
-								<div style={{fontFamily: COND, fontWeight: 800, fontSize: 70, lineHeight: 1.0, color: i === 2 ? th.night : th.cream, marginTop: 4}}>{s.title}</div>
-								{s.sub ? <div style={{fontFamily: SANS, fontSize: 34, color: i === 2 ? th.night : th.grey, marginTop: 8}}>{s.sub}</div> : null}
-							</div>
-						</Pop>
-					</React.Fragment>
-				))}
-			</div>
-
-			{/* 3. the question, 4. the average opening written and struck, 5. rewritten as sociology */}
-			<div style={{position: 'absolute', left: 64, right: 110, top: 190 + SOC_DY}}>
-				<Pop at={B.question} until={B.jump}>
-					<div style={{background: th.panel, border: `2px solid ${th.accent}55`, borderRadius: 18, padding: '18px 24px'}}>
-						<div style={{fontFamily: COND, fontWeight: 800, fontSize: 30, letterSpacing: 3, color: th.accent}}>{d.tag}</div>
-						<div style={{fontFamily: COND, fontWeight: 700, fontSize: 50, color: th.cream, lineHeight: 1.08, marginTop: 6}}>{d.question}</div>
-						<Pop at={B.directive} y={8}>
-							<span style={{display: 'inline-block', marginTop: 10, fontFamily: COND, fontWeight: 800, fontSize: 40, color: th.night, background: th.accent, padding: '2px 12px', borderRadius: 6}}>{d.directive}</span>
-						</Pop>
-					</div>
-				</Pop>
-				<Pop at={B.write - 0.3} until={B.jump} style={{marginTop: 28}}>
-					<Sheet th={th} title="HOW MOST ASPIRANTS OPEN" score={`${d.from} / ${d.out}`} lines={d.average}
-						write={B.write} writeEnd={B.strike - 0.6} strike={B.strike} gap={d.strikeGap || 1.1} strikeAt={d.strikeAt} />
-				</Pop>
-				<div style={{marginTop: 30}}>
-					{t < B.jump + 0.35 ? <Rewrite th={th} kicker={d.fixKicker || 'WRITE IT AS SOCIOLOGY'} lines={d.better} at={B.fix} gap={d.fixGap || 1.6} atList={d.fixAt} /> : null}
-				</div>
-			</div>
-
-			{/* 6. the mark moves, 7. the evaluator */}
-			<div style={{position: 'absolute', left: 64, right: 110, top: 220 + SOC_DY}}>
-				<MarkJump th={th} at={B.jump} from={d.from} to={d.to} out={d.out} label={d.jumpLabel || 'NAME THE CONCEPT, AND THE MARK MOVES'} />
-				<Pop at={B.jump + 0.8}>
-					<div style={{background: th.panel, border: `2px solid ${th.accent}55`, borderRadius: 18, padding: '18px 24px', marginTop: 34}}>
-						<Kicker c={th.accent}>THE LINES THAT MOVED IT</Kicker>
-						{(d.better || []).map((l: string, i: number) => (
-							<div key={i} style={{fontFamily: HAND, fontWeight: 700, fontSize: 38, lineHeight: 1.25, color: th.cream, marginTop: 10}}>{l}</div>
+			{/* 1. the headline types itself, then the question the series asks, 2. the desk's chain as a pipeline: news, concept, thinker */}
+			{t < hookOut + 0.35 ? (
+				<Zone until={hookOut}>
+					<Pop at={B.hook} keep>
+						<div style={{fontFamily: COND, fontWeight: 800, fontSize: head, lineHeight: 1.0, color: th.cream}}>
+							<Typed text={d.headline} from={B.hook} to={B.hook2 - 0.2} color={th.cream} cursor={th.accent} />
+						</div>
+					</Pop>
+					<Pop at={B.hook2} keep>
+						<div style={{fontFamily: COND, fontWeight: 800, fontSize: 96, color: th.accent, marginTop: 10}}>{d.hook2}</div>
+					</Pop>
+					<div style={{marginTop: 44}}>
+						{steps.map((s, i) => (
+							<React.Fragment key={s.k}>
+								{i > 0 ? <Pop at={s.at - 0.55} keep><DownArrow at={s.at - 0.55} len={84} color={th.accent} /></Pop> : null}
+								<Pop at={s.at} keep>
+									<div style={{background: i === 2 ? th.accent : th.panel, border: `2px solid ${th.accent}${i === 2 ? '' : '66'}`, borderRadius: 20, padding: '22px 28px'}}>
+										<div style={{fontFamily: COND, fontWeight: 800, fontSize: 30, letterSpacing: 4, color: i === 2 ? th.night : th.accent}}>{s.k}</div>
+										<div style={{fontFamily: COND, fontWeight: 800, fontSize: fit(s.title, 70, 26, 50), lineHeight: 1.0, color: i === 2 ? th.night : th.cream, marginTop: 4}}>{s.title}</div>
+										{s.sub ? <div style={{fontFamily: SANS, fontSize: fit(s.sub, 34, 46, 28), color: i === 2 ? th.night : th.grey, marginTop: 8}}>{s.sub}</div> : null}
+									</div>
+								</Pop>
+							</React.Fragment>
 						))}
 					</div>
-				</Pop>
-			</div>
-			<CTA th={th} at={B.cta} free={B.free} line={d.cta_line} badge={d.badge} />
+				</Zone>
+			) : null}
+
+			{/* 3. the question as set, 4. the average opening written and struck, 5. rewritten as sociology */}
+			{t >= hookOut + 0.35 && t < sheetOut + 0.35 ? (
+				<Zone until={sheetOut}>
+					<Pop at={B.question} keep>
+						<div style={{background: th.panel, border: `2px solid ${th.accent}55`, borderRadius: 18, padding: '18px 24px'}}>
+							<div style={{fontFamily: COND, fontWeight: 800, fontSize: 30, letterSpacing: 3, color: th.accent}}>{d.tag}</div>
+							<Question th={th} q={d.question} directive={d.directive} at={B.directive} />
+						</div>
+					</Pop>
+					<Pop at={B.write - 0.3} style={{marginTop: 28}} keep>
+						<Sheet th={th} title="HOW MOST ASPIRANTS OPEN" score={`${d.from} / ${d.out}`} lines={d.average}
+							write={B.write} writeEnd={B.strike - 0.6} strike={B.strike} gap={d.strikeGap || 1.1} strikeAt={d.strikeAt} />
+					</Pop>
+					<div style={{marginTop: 30}}>
+						<Rewrite th={th} kicker={d.fixKicker || 'WRITE IT AS SOCIOLOGY'} lines={d.better} at={B.fix} gap={d.fixGap || 1.6} atList={d.fixAt} keep />
+					</div>
+				</Zone>
+			) : null}
+
+			{/* 6. the mark moves, the lines that moved it, 7. the evaluator */}
+			{t >= sheetOut + 0.35 ? (
+				<Zone>
+					<MarkJump th={th} at={B.jump} from={d.from} to={d.to} out={d.out} label={d.jumpLabel || 'NAME THE CONCEPT, AND THE MARK MOVES'} keep />
+					<Pop at={B.jump + 0.8} keep>
+						<div style={{background: th.panel, border: `2px solid ${th.accent}55`, borderRadius: 18, padding: '18px 24px', marginTop: 34}}>
+							<Kicker c={th.accent}>THE LINES THAT MOVED IT</Kicker>
+							{(d.better || []).map((l: string, i: number) => (
+								<div key={i} style={{fontFamily: HAND, fontWeight: 700, fontSize: 38, lineHeight: 1.25, color: th.cream, marginTop: 10}}>{l}</div>
+							))}
+						</div>
+					</Pop>
+					<CTA th={th} at={B.cta} free={B.free} line={d.cta_line} badge={d.badge} inline />
+				</Zone>
+			) : null}
 		</>
 	);
 };
@@ -331,7 +390,6 @@ const Essay: React.FC<ReelProps & {th: Theme}> = ({beats: B, data: d, th}) => {
 	const shown = lenses.filter((_, i) => t >= lensAt(i)).length;
 	// each scene has left (its fade finished) before the next one arrives, so no two are ever
 	// on screen together; the sheet used to slide over the lens list at the change
-	const OUT = 0.4;
 	return (
 		<>
 			{/* 1. the topic as set, typed out in quotes */}
