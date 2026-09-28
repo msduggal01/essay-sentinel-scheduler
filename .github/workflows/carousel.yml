@@ -43,6 +43,10 @@ on:
         description: "Take the content from this daily run id (blank = the day's own artifacts)"
         default: ""
         type: string
+      clock:
+        description: "Started by the server clock at 18:00 IST: posts like the schedule, only while CAROUSEL_LIVE is true"
+        default: false
+        type: boolean
 permissions:
   contents: write         # the archive commit
   actions: read           # the daily run's artifacts, and the posted markers
@@ -82,6 +86,9 @@ jobs:
           if [ -n "$F" ]; then
             # a scheduled run has no inputs; it posts only once the owner has set CAROUSEL_LIVE
             if [ "${{ github.event_name }}" = "schedule" ] && [ "${{ vars.CAROUSEL_LIVE }}" = "true" ]; then PUBLISH=true; fi
+            # GitHub starts the schedule hours late; the server clock dispatches at 18:00 IST and is
+            # held to the same switch (the late scheduled run then finds the posted marker)
+            if [ "${{ inputs.clock }}" = "true" ] && [ "${{ vars.CAROUSEL_LIVE }}" = "true" ]; then PUBLISH=true; fi
             if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.publish }}" = "true" ]; then PUBLISH=true; fi
           fi
           echo "DATE=$D" >> $GITHUB_OUTPUT; echo "FORMAT=$F" >> $GITHUB_OUTPUT; echo "PUBLISH=$PUBLISH" >> $GITHUB_OUTPUT
@@ -124,7 +131,7 @@ jobs:
           retention-days: 30
 
       - name: Keep the day's facts for Sunday
-        if: ${{ github.event_name == 'schedule' || steps.day.outputs.PUBLISH == 'true' }}
+        if: ${{ github.event_name == 'schedule' || inputs.clock || steps.day.outputs.PUBLISH == 'true' }}
         run: |
           F="carousel/archive/${{ steps.day.outputs.DATE }}.json"
           [ -f "$F" ] || { echo "no facts for the day"; exit 0; }
