@@ -60,11 +60,15 @@ on a new page.
 | `question_summary` | text | the table's short form: `"Caste as a division of labourers: critically examine (20 marks)"` |
 | `marks` | 10, 15 or 20 | sets the word limit: 150 for 10 marks, 250 for 15 or 20 |
 | `pill` | text, optional | the third tag under the question: `"Asked before: Ambedkar on caste"` |
+| `meters` | `{difficulty, probability}` | each `{"level": 1 to 5, "reason": "..."}`, the reason at most 12 words; drawn as five dots each under the tags in the question box |
+| `also_likely` | `{question, marks}` | the second probable question, printed under the question box as "Also likely: ..." with its marks tag; `marks` 10, 15 or 20; at most 45 words and two lines |
 | `skeleton` | list of `[label, text]` | 3 to 7 lines: `["Introduction", "Ambedkar, 1936, and graded inequality as the idea you will test."]` |
 | `sets_apart` | text | finishes "What sets the top answers apart: ..." (do not repeat those words) |
 | `chain` | list of `{label, title, text}` | 3 to 5 boxes, news to answer: `THE NEWS`, `THE CONCEPT`, `THE THINKER`, `THE ANSWER` |
 | `answer` | list of paragraphs | the complete model answer, see below |
 | `ammunition` | list of `{source, line}` | 3 to 10: `{"source": "Ambedkar, *Annihilation of Caste* (1936)", "line": "Caste is a division of labourers as well as of labour."}` |
+| `anchors` | list of `{thinker, concept, work, year, application}` | 2 to 4 theoretical anchors, printed in the Ammunition box as "Thinker, concept (*Work*, year): application"; `work` and `year` only when you are certain of them (leave both out otherwise); `application` at most 25 words |
+| `comparative_lens` | text | 100 to 120 words, printed in its own box after the Ammunition, titled "Comparative lens" |
 | `thinker` | `{name, dates, text}` | thinker of the day; `dates` optional (`"1891 to 1956"`); `text` two or three sentences |
 | `practice` | text | the closing dark box: `"Write this answer tonight in eighteen minutes, then get it evaluated at evaluate.upscdesk.com."` |
 
@@ -103,6 +107,10 @@ have no notes (`"notes": []`).
 - Word count of the model answer: 143 to 150 words for 10 marks, 238 to 250 for 15 or 20 marks
   (within five per cent under, never over); the model essay 1,000 to 1,200 words. Counted as
   `len(text.split())` over the words the reader sees, printed beside the heading.
+- Sociology: `meters`, `also_likely`, `anchors` and `comparative_lens` are all present; each meter
+  level is 1 to 5 and its reason at most 12 words and one line; the second question differs from
+  the first and fits two lines; 2 to 4 anchors, each application at most 25 words; the comparative
+  lens 100 to 120 words (printed with the answer's count). The voice checks apply to all of them.
 - Every note number marks exactly one phrase in the paragraph the note sits beside, and every
   highlighted number has its note; numbers run 1, 2, 3 in reading order within each event or topic.
 - A note is at most 25 words; at most two notes per paragraph; the note column is never taller

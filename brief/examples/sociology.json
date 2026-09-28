@@ -12,6 +12,20 @@
    "question_summary": "Caste as a division of labourers: critically examine (20 marks)",
    "marks": 20,
    "pill": "Asked before: Ambedkar on caste",
+   "meters": {
+    "difficulty": {
+     "level": 3,
+     "reason": "Graded inequality must be kept apart from a simple hierarchy."
+    },
+    "probability": {
+     "level": 4,
+     "reason": "Ambedkar and Dalit movements are tested nearly every year."
+    }
+   },
+   "also_likely": {
+    "question": "In the light of recent instances of caste discrimination in premier technical institutions, examine the continuing relevance of Ambedkar's concept of graded inequality.",
+    "marks": 10
+   },
    "skeleton": [
     [
      "Introduction",
@@ -136,6 +150,28 @@
      "line": "The Promotion of Equity in Higher Educational Institutions regulations."
     }
    ],
+   "anchors": [
+    {
+     "thinker": "B.R. Ambedkar",
+     "concept": "graded inequality",
+     "work": "Annihilation of Caste",
+     "year": "1936",
+     "application": "Explains why admission through reservation does not by itself bring dignity once the student is inside."
+    },
+    {
+     "thinker": "Dipankar Gupta",
+     "concept": "castes as separate groups",
+     "work": "Interrogating Caste",
+     "year": "2000",
+     "application": "Reads the campus case as groups guarding their boundaries, so the ranking is contested as well as kept."
+    },
+    {
+     "thinker": "Satish Deshpande",
+     "concept": "castelessness",
+     "application": "Explains why upper-caste students read their own place as merit and do not see the ranking."
+    }
+   ],
+   "comparative_lens": "Western stratification theory, built on Weber's status groups or on Marx's classes, expects discrimination to weaken once an institution admits people on merit. The IIT Bombay case complicates this expectation. Entry by examination and reservation sits alongside humiliation by rank, because caste is a ranking given at birth that formal rules do not dissolve. The nearest Western parallel is the dispute over race on American campuses under affirmative action, and the two partly converge: in both, quotas at entry bring backlash and anxiety about boundaries. The Indian case differs because caste also carries ideas of purity and pollution, which race does not carry in the same institutional form.",
    "thinker": {
     "name": "B.R. Ambedkar",
     "dates": "1891 to 1956",

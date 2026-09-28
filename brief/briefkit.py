@@ -224,6 +224,27 @@ class Pills(Flowable):
             x += w + 2 * mm
 
 
+METER_DOTS_X, METER_NOTE_X = 46 * mm, 70 * mm
+
+
+def meter_fit(reason, width):
+    """True when a meter's one line of reason fits beside its dots in a row this wide"""
+    return pdfmetrics.stringWidth(reason, F["sans"], 7.6) <= width - METER_NOTE_X
+
+
+class Meter(Flowable):
+    """element 28: a label, five dots with n filled, and one line of reason"""
+    def __init__(self, th, label, n, note=""):
+        super().__init__(); self.th, self.label, self.n, self.note = th, label, n, note
+    def wrap(self, aw, ah): self.aw = aw; return aw, 5.5 * mm
+    def draw(self):
+        c, th = self.canv, self.th
+        c.setFillColor(th["ink"]); c.setFont(F["sansB"], 8.2); c.drawString(0, 1.5 * mm, self.label)
+        for i in range(5):
+            c.setFillColor(th["accent"] if i < self.n else th["tint"]); c.circle(METER_DOTS_X + i * 4.4 * mm, 2.6 * mm, 1.6 * mm, stroke=0, fill=1)
+        c.setFillColor(th["muted"]); c.setFont(F["sans"], 7.6); c.drawString(METER_NOTE_X, 1.5 * mm, self.note)
+
+
 def wrap_text(text, font, size, width):
     words, lines, cur = text.split(), [], ""
     for w in words:

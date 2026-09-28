@@ -6,8 +6,9 @@
 
 The content file is described in SCHEMA.md. The builder checks the content first: word
 counts against the limit, every note number against its highlighted phrase, note length,
-notes per paragraph, a margin column never longer than its paragraph, dashes, emojis,
-"script" and "candidate", and the brief-voice words and phrases. If anything fails it prints
+notes per paragraph, a margin column never longer than its paragraph, the Sociology meters,
+second question, anchors and comparative lens, dashes, emojis, "script" and "candidate", and
+the brief-voice words and phrases. If anything fails it prints
 a numbered list of problems and exits with code 1 without writing the PDF: fix the content
 and run it again. Exit code 0 means the PDF was built.
 """
@@ -17,8 +18,8 @@ import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from briefkit import (CW, F, NOTE_COLOURS, THEMES, Pills, Pipeline, HubSpoke, band, box, can_draw, column_heights,  # noqa: E402
-                      grid, hub_fit, make_doc, mark, numbered_margin, pills_width, pipeline_fit, styles)
+from briefkit import (CW, F, NOTE_COLOURS, THEMES, Meter, Pills, Pipeline, HubSpoke, band, box, can_draw, column_heights,  # noqa: E402
+                      grid, hub_fit, make_doc, mark, meter_fit, numbered_margin, pills_width, pipeline_fit, styles, wrap_text)
 from reportlab.lib import colors  # noqa: E402
 from reportlab.lib.units import mm  # noqa: E402
 from reportlab.platypus import CondPageBreak, KeepTogether, PageBreak, Paragraph, Spacer  # noqa: E402
@@ -28,6 +29,11 @@ TAGS = list(NOTE_COLOURS)
 NOTE_MAX_WORDS, NOTES_PER_PARA = 25, 2
 ESSAY_MIN, ESSAY_MAX = 1000, 1200
 LIMITS = {10: 150, 15: 250, 20: 250}
+# the Sociology additions (option B): meters, the second question, anchors, the comparative lens
+METER_REASON_MAX, ALSO_LIKELY_MAX = 12, 45
+ANCHORS_MIN, ANCHORS_MAX, ANCHOR_APPLICATION_MAX = 2, 4, 25
+LENS_MIN, LENS_MAX = 100, 120
+QBOX_INNER = CW - 21          # the question box's inner width (padding 9, rule 3, padding 9)
 
 # ------------------------------------------------------------------ the voice check
 # BRIEF_VOICE (ops/agent_patches/brief_voice.md) and the desks' own banned phrases
@@ -255,6 +261,77 @@ def check_common(p, e, where, texts, desk):
             texts.append((f"{where} practice", e["practice"], "prose"))
 
 
+def also_likely_text(q):
+    return "<b>Also likely:</b> “" + to_html(q) + "”"
+
+
+def also_likely_tag(marks):
+    return f"{marks} MARKS"
+
+
+def check_sociology_extras(p, e, where, texts):
+    """the four pieces the owner brought back (option B): meters, the second question,
+    the theoretical anchors and the comparative lens"""
+    st = styles(THEMES["sociology"])
+    m = need(p, e, "meters", where, dict)
+    if m is not None:
+        for k in ("difficulty", "probability"):
+            mw = f"{where} meters {k}"
+            v = m.get(k)
+            if not isinstance(v, dict):
+                p.add(mw, "must be an object with 'level' (1 to 5) and 'reason'"); continue
+            if not isinstance(v.get("level"), int) or isinstance(v.get("level"), bool) or not 1 <= v["level"] <= 5:
+                p.add(mw, "'level' must be a whole number from 1 to 5")
+            r = v.get("reason")
+            if not isinstance(r, str) or not r.strip():
+                p.add(mw, "'reason' is missing"); continue
+            texts.append((mw, r, "label"))
+            if words(r) > METER_REASON_MAX:
+                p.add(mw, f"the reason is {words(r)} words; at most {METER_REASON_MAX}")
+            elif not meter_fit(plain(r), QBOX_INNER):
+                p.add(mw, "the reason runs off the line; shorten it")
+    al = need(p, e, "also_likely", where, dict)
+    if al is not None:
+        q = need(p, al, "question", f"{where} also_likely")
+        if al.get("marks") not in LIMITS:
+            p.add(f"{where} also_likely", "'marks' must be 10, 15 or 20")
+        if q:
+            texts.append((f"{where} also_likely", q, "prose"))
+            if words(q) > ALSO_LIKELY_MAX:
+                p.add(f"{where} also_likely", f"the question is {words(q)} words; at most {ALSO_LIKELY_MAX}")
+            elif al.get("marks") in LIMITS:
+                tw = CW - pills_width([also_likely_tag(al["marks"])]) - 8
+                h = Paragraph(also_likely_text(q), st["small"]).wrap(tw, 1e6)[1]
+                if h > st["small"].leading * 2 + 1:
+                    p.add(f"{where} also_likely", "the question runs past two lines; shorten it")
+            if isinstance(e.get("question"), str) and plain(q).strip().lower() == plain(e["question"]).strip().lower():
+                p.add(f"{where} also_likely", "must be a second question, not the one in the question box")
+    an = need(p, e, "anchors", where, list)
+    if an is not None:
+        if not ANCHORS_MIN <= len(an) <= ANCHORS_MAX:
+            p.add(f"{where} anchors", f"{ANCHORS_MIN} to {ANCHORS_MAX} anchors")
+        for i, a in enumerate(an, 1):
+            aw = f"{where} anchor {i}"
+            if not isinstance(a, dict) or not all(isinstance(a.get(k), str) and a[k].strip() for k in ("thinker", "concept", "application")):
+                p.add(aw, "needs 'thinker', 'concept' and 'application' ('work' and 'year' when you are certain of them)"); continue
+            for k in ("work", "year"):
+                if a.get(k) is not None and not (isinstance(a[k], (str, int)) and str(a[k]).strip()):
+                    p.add(aw, f"'{k}' must be text, or left out")
+            if a.get("year") is not None and not a.get("work"):
+                p.add(aw, "a 'year' needs its 'work'")
+            texts += [(aw, a["thinker"], "label"), (aw, a["concept"], "label"), (aw, a["application"], "prose")]
+            if isinstance(a.get("work"), str): texts.append((aw, a["work"], "label"))
+            if words(a["application"]) > ANCHOR_APPLICATION_MAX:
+                p.add(aw, f"the application is {words(a['application'])} words; at most {ANCHOR_APPLICATION_MAX}")
+    cl = need(p, e, "comparative_lens", where)
+    if cl:
+        texts.append((f"{where} comparative_lens", cl, "prose"))
+        n = words(cl)
+        if not LENS_MIN <= n <= LENS_MAX:
+            p.add(f"{where} comparative_lens", f"{n} words; it must be {LENS_MIN} to {LENS_MAX} words")
+        return n
+
+
 def validate(d):
     """(problems, report lines, theme) for a content dict"""
     p, texts, report = Problems(), [], []
@@ -304,6 +381,7 @@ def validate(d):
                     else: p.add(f"{where} thinker", "'dates' must be text, for example 1891 to 1956")
             if not isinstance(e.get("practice"), str):
                 p.add(where, "'practice' is missing (the closing line: write this answer tonight ...)")
+            ln = check_sociology_extras(p, e, where, texts)
             pill_texts = [f"PAPER {paper}", f"{marks} MARKS · {limit} WORDS"] + ([e["pill"].upper()] if isinstance(e.get("pill"), str) and e["pill"] else [])
             if ans is not None:
                 n = check_answer(p, ans, f"{where} model answer", th, st, texts)
@@ -312,6 +390,8 @@ def validate(d):
                 report.append(f"{where} model answer: {n} words (limit {limit}, allowed {lo} to {limit}){'' if ok else '  <-- outside the limit'}")
                 if not ok:
                     p.add(f"{where} model answer", f"{n} words; it must be {lo} to {limit} words for {marks} marks (count with len(text.split()))")
+            if ln is not None:
+                report.append(f"{where} comparative lens: {ln} words (allowed {LENS_MIN} to {LENS_MAX}){'' if LENS_MIN <= ln <= LENS_MAX else '  <-- outside the limit'}")
         else:
             if e.get("section") not in ("A", "B"):
                 p.add(where, "'section' must be 'A' or 'B'")
@@ -370,11 +450,47 @@ def skeleton_rows(rows, st):
     return [Paragraph(f"<b>{to_html(k)}.</b> {to_html(v)}", st["bodyL"]) for k, v in rows]
 
 
-def ammo_box(ammo, th, st, gap):
+def anchor_head(a):
+    """Thinker, concept (Work, year): the work in italics"""
+    head = f"{to_html(a['thinker'].strip())}, {to_html(a['concept'].strip())}"
+    if a.get("work"):
+        work = str(a["work"]).strip().strip("*")
+        head += f" (<i>{to_html(work)}</i>" + (f", {to_html(str(a['year']).strip())}" if a.get("year") else "") + ")"
+    return head
+
+
+def ammo_box(ammo, th, st, gap, anchors=None):
     am = [Paragraph("AMMUNITION", st["labelA"]), Spacer(1, 3)]
     for a in ammo:
         am.append(Paragraph(f"<b>{to_html(a['source'].rstrip('.'))}.</b> {to_html(a['line'])}", st["small"])); am.append(Spacer(1, gap))
+    if anchors:          # Sociology, option B: the theoretical anchors with their application
+        am += [Spacer(1, 3), Paragraph("THEORETICAL ANCHORS", st["labelA"]), Spacer(1, 3)]
+        for a in anchors:
+            am.append(Paragraph(f"<b>{anchor_head(a)}:</b> {to_html(a['application'])}", st["small"])); am.append(Spacer(1, gap))
     return box(am, th, fill=th["pale"], pad=9)
+
+
+def meters_rows(m, th):
+    """element 28, under the question box's tags: difficulty and probability, five dots each"""
+    return [Spacer(1, 6), Meter(th, "Difficulty", m["difficulty"]["level"], plain(m["difficulty"]["reason"])), Spacer(1, 1),
+            Meter(th, "Probability", m["probability"]["level"], plain(m["probability"]["reason"]))]
+
+
+def also_likely_row(al, th, st):
+    """the second probable question, one line under the question box, with its marks tag"""
+    from reportlab.platypus import Table, TableStyle
+    tag = also_likely_tag(al["marks"])
+    pw = pills_width([tag]) + 2
+    t = Table([[Paragraph(also_likely_text(al["question"]), st["small"]), Pills([(tag, th["accent"], th["deep"])])]], colWidths=[CW - pw, pw])
+    t.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (0, 0), 8),
+                           ("RIGHTPADDING", (1, 0), (1, 0), 0), ("TOPPADDING", (0, 0), (-1, -1), 0), ("BOTTOMPADDING", (0, 0), (-1, -1), 0)]))
+    return t
+
+
+def lens_box(text, th, st):
+    """Sociology, option B: the comparative lens, one box with a coloured rule"""
+    return KeepTogether([Paragraph("COMPARATIVE LENS", st["labelA"]), Spacer(1, 3),
+                         box([Paragraph(to_html(text), st["small"])], th, fill=th["pale"], rule=th["accent"], pad=9)])
 
 
 def motive(text, th, st):
@@ -399,7 +515,10 @@ def sociology_story(d, th, st):
         s.append(Paragraph("THE PROBABLE QUESTION", st["labelA"])); s.append(Spacer(1, 3))
         pills = [(f"PAPER {e['paper']}", th["primary"], colors.white), (f"{e['marks']} MARKS · {limit} WORDS", th["accent"], th["deep"])]
         if e.get("pill"): pills.append((plain(e["pill"]).upper(), th["tint"], th["primary"]))
-        s.append(box([Paragraph("“" + to_html(e["question"]) + "”", st["q"]), Spacer(1, 5), Pills(pills)], th, fill=th["pale"], rule=th["accent"], pad=9))
+        qb = [Paragraph("“" + to_html(e["question"]) + "”", st["q"]), Spacer(1, 5), Pills(pills)]
+        if e.get("meters"): qb += meters_rows(e["meters"], th)
+        s.append(box(qb, th, fill=th["pale"], rule=th["accent"], pad=9))
+        if e.get("also_likely"): s += [Spacer(1, 5), also_likely_row(e["also_likely"], th, st)]
         s.append(Spacer(1, 9))
         sk = [Paragraph(f"THE SKELETON ({limit} words)", st["h3"]), Spacer(1, 3)] + skeleton_rows(e["skeleton"], st)
         sk += [Spacer(1, 4), Paragraph(f"<i>What sets the top answers apart: {to_html(e['sets_apart'])}</i>", st["apart"]),
@@ -411,7 +530,8 @@ def sociology_story(d, th, st):
         s.append(box([Paragraph(f"THE MODEL ANSWER, WITH THE EXAMINER'S NOTES  ·  {n} words (limit {limit})", st["count"])], th, fill=th["pale"], border=th["accent"], pad=6))
         s.append(Spacer(1, 6))
         s.append(numbered_margin(answer_rows(e["answer"], th), th, st)); s.append(Spacer(1, 8))
-        s.append(ammo_box(e["ammunition"], th, st, 3)); s.append(Spacer(1, 9))
+        s.append(ammo_box(e["ammunition"], th, st, 3, e.get("anchors"))); s.append(Spacer(1, 9))
+        if e.get("comparative_lens"): s += [lens_box(e["comparative_lens"], th, st), Spacer(1, 9)]
         t = e["thinker"]
         head = f"<b>{to_html(t['name'])}</b>" + (f" ({to_html(t['dates'])})" if t.get("dates") else "")
         s.append(KeepTogether([Paragraph("THINKER OF THE DAY", st["labelA"]), Spacer(1, 3),
