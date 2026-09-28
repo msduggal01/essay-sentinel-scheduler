@@ -296,7 +296,7 @@ def check_sociology_extras(p, e, where, texts):
         if al.get("marks") not in LIMITS:
             p.add(f"{where} also_likely", "'marks' must be 10, 15 or 20")
         if q:
-            texts.append((f"{where} also_likely", q, "prose"))
+            texts.append((f"{where} also_likely", q, "label"))      # may end on "Comment." as UPSC sets it
             if words(q) > ALSO_LIKELY_MAX:
                 p.add(f"{where} also_likely", f"the question is {words(q)} words; at most {ALSO_LIKELY_MAX}")
             elif al.get("marks") in LIMITS:
@@ -364,7 +364,9 @@ def validate(d):
                 p.add(where, "'paper' must be 1 or 2")
             for k in ("syllabus", "title", "question", "question_summary"):
                 v = need(p, e, k, where)
-                if v: texts.append((f"{where} {k}", v, "label" if k != "question" else "prose"))
+                # the question ends on its directive ("Comment.", "Discuss."), as UPSC sets it, so
+                # the clipped-sentence check does not apply to it; every other voice check does
+                if v: texts.append((f"{where} {k}", v, "label"))
             marks = e.get("marks")
             if marks not in LIMITS:
                 p.add(where, "'marks' must be 10, 15 or 20"); marks = 20

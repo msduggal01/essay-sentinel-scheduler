@@ -123,7 +123,7 @@ have no notes (`"notes": []`).
   leverage, paradigm, synergy, game-changer, seamless, intricate, myriad) and phrases (in today's
   world, in an era of, it is important to note, arguably, at its core, ultimately, in conclusion,
   the need of the hour, and the rest); an "Imagine" opener; a colon reveal; a clipped
-  one or two word sentence; the "not X, but Y" turn more than once in the whole brief. A phrase
+  one or two word sentence (except the directive a question ends on, such as "Comment."); the "not X, but Y" turn more than once in the whole brief. A phrase
   inside quotation marks, quoted in order to warn against it, is not counted.
 - Every character can be drawn in the font in use (write "Rs" or "rupees" if the rupee sign cannot).
 
