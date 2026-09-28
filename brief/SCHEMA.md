@@ -70,7 +70,7 @@ on a new page.
 | `anchors` | list of `{thinker, concept, work, year, application}` | 2 to 4 theoretical anchors, printed in the Ammunition box as "Thinker, concept (*Work*, year): application"; `work` and `year` only when you are certain of them (leave both out otherwise); `application` at most 25 words |
 | `comparative_lens` | text | 100 to 120 words, printed in its own box after the Ammunition, titled "Comparative lens" |
 | `thinker` | `{name, dates, text}` | thinker of the day; `dates` optional (`"1891 to 1956"`); `text` two or three sentences |
-| `practice` | text | the closing dark box: `"Write this answer tonight in eighteen minutes, then get it evaluated at evaluate.upscdesk.com."` |
+| `practice` | text | the closing dark box: `"Write this answer tonight in fifteen minutes, then get it evaluated at evaluate.upscdesk.com, five free evaluations every month."` |
 
 ## An Essay topic
 
