@@ -177,7 +177,9 @@ const Kicker: React.FC<{c: string; children: React.ReactNode}> = ({c, children})
 );
 
 /* the ruled sheet: lines written out one after another, then struck with margin notes. A line
-   over 30 characters is set a little smaller so it keeps clear of its margin note. */
+   over 30 characters is set smaller (to the width of 27 at full size) so it keeps clear of its
+   margin note; a note over 14 is set smaller too, and the margin column holds its 200 px
+   however long the line beside it, so a note stays on the paper. */
 const Sheet: React.FC<{th: Theme; title: string; score?: string; lines: {text: string; note?: string}[]; write: number; writeEnd: number;
 	strike: number; gap: number; strikeAt?: number[]}> = ({th, title, score, lines, write, writeEnd, strike, gap, strikeAt}) => {
 	const total = lines.reduce((a, l) => a + l.text.length, 0) || 1;
@@ -197,14 +199,14 @@ const Sheet: React.FC<{th: Theme; title: string; score?: string; lines: {text: s
 				const b = write + (writeEnd - write) * (acc / total);
 				const at = strikeAt?.[i] ?? strike + i * gap;
 				return (
-					<div key={i} style={{display: 'grid', gridTemplateColumns: '1fr 200px', alignItems: 'center', minHeight: 70}}>
-						<div style={{fontFamily: HAND, fontSize: l.text.length > 30 ? Math.round(42 * 30 / l.text.length) : 42, lineHeight: 1.6, whiteSpace: 'nowrap', overflow: 'visible'}}>
+					<div key={i} style={{display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 200px', alignItems: 'center', minHeight: 70}}>
+						<div style={{fontFamily: HAND, fontSize: l.text.length > 30 ? Math.round(42 * 27 / l.text.length) : 42, lineHeight: 1.6, whiteSpace: 'nowrap', overflow: 'visible'}}>
 							<Struck at={at}><Typed text={l.text} from={a} to={b} color={th.ink} /></Struck>
 						</div>
-						<div style={{textAlign: 'right', transform: 'rotate(-4deg)'}}>
+						<div style={{display: 'flex', justifyContent: 'flex-end', transform: 'rotate(-4deg)'}}>
 							{l.note ? (
 								<Pop at={at + 0.3} y={8}>
-									<span style={{fontFamily: th.mark, fontWeight: 700, fontSize: 31, color: RED, whiteSpace: 'nowrap'}}>{l.note}</span>
+									<span style={{fontFamily: th.mark, fontWeight: 700, fontSize: l.note.length > 14 ? Math.floor(31 * 12 / l.note.length) : 31, color: RED, whiteSpace: 'nowrap'}}>{l.note}</span>
 								</Pop>
 							) : null}
 						</div>
@@ -299,6 +301,11 @@ const fit = (s: string | undefined, size: number, chars: number, min: number) =>
 	const n = (s || '').length;
 	return n > chars ? Math.max(min, Math.floor(size * chars / n)) : size;
 };
+// the same for a block that wraps over several lines: its area, not its width, is kept
+const fitArea = (s: string | undefined, size: number, chars: number, min: number) => {
+	const n = (s || '').length;
+	return n > chars ? Math.max(min, Math.floor(size * Math.sqrt(chars / n))) : size;
+};
 
 const Sociology: React.FC<ReelProps & {th: Theme}> = ({beats: B, data: d, th}) => {
 	const t = useT();
@@ -382,6 +389,10 @@ const Sociology: React.FC<ReelProps & {th: Theme}> = ({beats: B, data: d, th}) =
 // Heights the scenes are centred on, from the type sizes below: a lens row is 136 px, the
 // lens header and hub 210; the sheet with its rewrite about 700.
 const lensTop = (n: number) => Math.max(340, Math.round(MID - (210 + n * 136) / 2));
+// a long field is set smaller rather than run past its room (fit and fitArea, above): a topic
+// over 85 characters keeps the area of five lines, clear of the reading below it; the literal
+// reading over 42 keeps its one struck line; a hub over 30 is narrowed so the lens list stays
+// in the safe zone. Every field at or under those lengths is set as before.
 
 const Essay: React.FC<ReelProps & {th: Theme}> = ({beats: B, data: d, th}) => {
 	const t = useT();
@@ -396,7 +407,7 @@ const Essay: React.FC<ReelProps & {th: Theme}> = ({beats: B, data: d, th}) => {
 			<div style={{position: 'absolute', left: 64, right: 110, top: 430}}>
 				<Pop at={B.hook} until={B.lenses - OUT}>
 					<Kicker c={th.accent}>{d.kicker || 'THE TOPIC, AS SET'}</Kicker>
-					<div style={{fontFamily: HAND, fontWeight: 700, fontSize: 64, lineHeight: 1.18, color: th.cream, marginTop: 10}}>
+					<div style={{fontFamily: HAND, fontWeight: 700, fontSize: fitArea(d.topic, 64, 85, 40), lineHeight: 1.18, color: th.cream, marginTop: 10}}>
 						<Typed text={`“${d.topic}”`} from={B.hook} to={B.hook2 - 0.3} color={th.cream} cursor={th.accent} />
 					</div>
 				</Pop>
@@ -409,7 +420,7 @@ const Essay: React.FC<ReelProps & {th: Theme}> = ({beats: B, data: d, th}) => {
 			<div style={{position: 'absolute', left: 64, right: 110, top: 990}}>
 				<Pop at={B.literal} until={B.lenses - OUT}>
 					<Kicker c={th.grey}>WHAT MOST READ</Kicker>
-					<div style={{fontFamily: HAND, fontSize: 44, color: th.grey, lineHeight: 1.25, marginTop: 6}}>
+					<div style={{fontFamily: HAND, fontSize: fit(d.literal, 44, 42, 32), color: th.grey, lineHeight: 1.25, marginTop: 6}}>
 						<Struck at={B.decode - 0.5}>{d.literal}</Struck>
 					</div>
 				</Pop>
@@ -430,7 +441,7 @@ const Essay: React.FC<ReelProps & {th: Theme}> = ({beats: B, data: d, th}) => {
 						<span style={{fontFamily: COND, fontWeight: 800, fontSize: 96, color: th.hi, lineHeight: 0.9}}>{Math.max(1, shown)}</span>
 					</div>
 					<div style={{background: th.accent, color: th.night, borderRadius: 18, padding: '18px 24px', marginTop: 14, textAlign: 'center',
-						fontFamily: COND, fontWeight: 800, fontSize: 64, lineHeight: 1.02}}>{d.hub}</div>
+						fontFamily: COND, fontWeight: 800, fontSize: fit(d.hub, 64, 30, 50), lineHeight: 1.02}}>{d.hub}</div>
 					{lenses.map((l, i) => {
 						const at = lensAt(i);
 						return (

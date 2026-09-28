@@ -197,20 +197,27 @@ def check_essay(c, d):
     errs = []
     clean_words(c, "reply", errs)
     topic = (first(d, "topic_title").get("heading") or "").strip()
-    cap(c.get("topic"), 130, "topic", errs)
+    # the model is still asked for the lengths in ESSAY_SCHEMA; a line a little over them still
+    # fits (DeskShort.tsx sets a long topic, literal reading, hub, sheet line or note smaller),
+    # so only a clear overrun is sent back. Every scene was rendered with every field at these
+    # caps, in ordinary words and in the widest letters, and nothing left the safe zone or met
+    # another line: topic 160, literal 56, decode 88, hub 36, lens title 17 and sub 42, average
+    # text 38 (its note stays 16), better 54. The lenses are held at 16 and 38, the longest the
+    # carousel (ops/carousel_props.py) takes before it leaves a lens out
+    cap(c.get("topic"), 160, "topic", errs)
     if topic and c.get("topic") and re.sub(r"\W+", " ", c["topic"]).strip().lower() != re.sub(r"\W+", " ", topic).strip().lower():
         errs.append(f"topic: must be the topic exactly as set: {topic!r}")
-    cap(c.get("literal"), 46, "literal", errs); cap(c.get("decode"), 72, "decode", errs); cap(c.get("hub"), 30, "hub", errs)
+    cap(c.get("literal"), 56, "literal", errs); cap(c.get("decode"), 88, "decode", errs); cap(c.get("hub"), 36, "hub", errs)
     ls = c.get("lenses") or []
     if not 4 <= len(ls) <= 6: errs.append("lenses: four to six")
     for i, l in enumerate(ls):
-        cap((l or {}).get("title"), 14, f"lenses[{i}].title", errs); cap((l or {}).get("sub"), 34, f"lenses[{i}].sub", errs)
+        cap((l or {}).get("title"), 16, f"lenses[{i}].title", errs); cap((l or {}).get("sub"), 38, f"lenses[{i}].sub", errs)
     av, bt = c.get("average") or [], c.get("better") or []
     if len(av) != 3: errs.append("average: exactly three lines")
     for i, l in enumerate(av):
-        cap((l or {}).get("text"), 30, f"average[{i}].text", errs); cap((l or {}).get("note"), 16, f"average[{i}].note", errs)
+        cap((l or {}).get("text"), 38, f"average[{i}].text", errs); cap((l or {}).get("note"), 16, f"average[{i}].note", errs)
     if len(bt) != 3: errs.append("better: exactly three lines")
-    for i, l in enumerate(bt): cap(l, 46, f"better[{i}]", errs)
+    for i, l in enumerate(bt): cap(l, 54, f"better[{i}]", errs)
     return errs
 
 
