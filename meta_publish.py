@@ -237,13 +237,29 @@ def check(token, page, ig):
 
 # ------------------------------------------------------------------ carousels
 # The day's carousel (carousel.yml): 2 to 10 PNG slides of one size, to Instagram as a
-# CAROUSEL post and to the Facebook Page as one post with the photos attached. Instagram takes
-# images only from a public address, so each slide goes to the Page first as an unpublished
-# photo (nothing appears on the Page), and both legs use those photos: Instagram their
-# addresses, Facebook their ids. The token travels in the form body or the Authorization
-# header, never in an address. A slide that cannot be uploaded stops both legs, so half a
-# carousel is never posted. --done is the result of an earlier run for the same day: a leg it
-# already records is not posted again, so a re-run never posts twice.
+# CAROUSEL post, and to the Facebook Page as a link carousel. Instagram takes images only from
+# a public address, so each slide goes to the Page first as an unpublished photo (nothing
+# appears on the Page) and Instagram gets their addresses. A slide that cannot be uploaded
+# stops both legs, so half a carousel is never posted. The token travels in the form body or
+# the Authorization header, never in an address. --done is the result of an earlier run for
+# the same day: a leg it already records is not posted again, so a re-run never posts twice.
+#
+# Facebook. A feed post with the photos attached showed as a grid of tiles, not as slides.
+# The Facebook leg is now a link carousel (POST /{page}/feed with link, child_attachments,
+# multi_share_optimized=false so the order stays ours, multi_share_end_card=false): the first
+# slide with a swipe to the rest, every card linking to the evaluator. Link-carousel cards
+# show square, so each slide is set on a 1080 x 1080 card in the desk's band colour
+# (square_cards, into fb_cards/ next to the slides) and uploaded as an unpublished Page photo
+# for its public address. Facebook lets only the verified owner of a link's domain set its
+# picture, so until upscdesk.com is verified for the Page it refuses the carousel; on that,
+# or on any other refusal, the leg falls back to one published photo of slide 1 with the
+# caption and a line that the full carousel is on Instagram. The photo grid is never posted.
+
+FB_LINK = "https://evaluate.upscdesk.com"
+IG_HANDLE = "@upscdesk.official"
+DESK_PRIMARY = {"gs": (0x3E, 0x2A, 0x52), "sociology": (0x1E, 0x3A, 0x5F), "essay": (0x7A, 0x2D, 0x3A)}
+_NAME_BAD = re.compile("[\u2013\u2014\u2012\u2015]|\\s-+\\s|[\U0001F000-\U0001FAFF\u2600-\u27BF\u2B00-\u2BFF\uFE0F\u200D]")
+
 
 def _get_h(path, token, **params):
     """a GET with the token in the Authorization header, never in the address"""
@@ -280,9 +296,15 @@ def carousel_caption(path):
     return text
 
 
+def _page_photo(page_id, token, png, **fields):
+    """a PNG to the Page's photos: the file itself as 'source', the token in the form body"""
+    return _post_file(f"{page_id}/photos", token, png, **fields)
+
+
 def upload_photo(page_id, token, png):
-    """one slide as an unpublished Page photo: (photo id, the address of its largest size)"""
-    pid = _post_file(f"{page_id}/photos", token, png, published="false")["id"]
+    """one image as an unpublished Page photo: (photo id, the address of its largest size, read
+    with the token in a header)"""
+    pid = _page_photo(page_id, token, png, published="false")["id"]
     images = _get_h(pid, token, fields="images").get("images") or []
     best = max(images, key=lambda i: int(i.get("width") or 0) * int(i.get("height") or 0), default={})
     if not best.get("source"):
@@ -310,9 +332,143 @@ def ig_carousel(urls, caption, token, ig):
     return _post(f"{ig}/media_publish", token, creation_id=cid).get("id")
 
 
-def fb_carousel(photo_ids, caption, token, page):
-    media = {f"attached_media[{k}]": json.dumps({"media_fbid": pid}) for k, pid in enumerate(photo_ids)}
-    return _post(f"{page}/feed", token, message=caption, **media).get("id")
+def _desk(folder):
+    """the desk the carousel is for: props.json's desk, else UPSC_DESK"""
+    try:
+        d = json.load(open(os.path.join(folder, "props.json"), encoding="utf-8")).get("desk")
+    except (OSError, ValueError, AttributeError):
+        d = None
+    return str(d or os.environ.get("UPSC_DESK", "")).strip().lower()
+
+
+def square_cards(pngs, outdir, desk=""):
+    """each 1080 x 1350 slide scaled to the card's height (864 x 1080) and centred on a 1080 x
+    1080 card in the slide's own band colour (its top-left pixel; the desk's primary if that
+    pixel is page white). A square slide is copied as it is. Returns the cards' paths."""
+    from PIL import Image                        # only the carousel path needs Pillow
+    os.makedirs(outdir, exist_ok=True)
+    cards = []
+    for k, p in enumerate(pngs, 1):
+        im = Image.open(p).convert("RGB")
+        band = im.getpixel((0, 0))
+        if sum(band) > 3 * 230:
+            band = DESK_PRIMARY.get(desk, DESK_PRIMARY["gs"])
+        scale = min(1080 / im.width, 1080 / im.height)
+        w, h = round(im.width * scale), round(im.height * scale)
+        card = Image.new("RGB", (1080, 1080), band)
+        card.paste(im if (w, h) == im.size else im.resize((w, h), Image.LANCZOS), ((1080 - w) // 2, (1080 - h) // 2))
+        out = os.path.join(outdir, f"card_{k:02d}.png")
+        card.save(out, optimize=True)
+        cards.append(out)
+    return cards
+
+
+def _name_ok(s):
+    return bool(s) and not _NAME_BAD.search(s)
+
+
+def _first_line_name(caption, limit=60):
+    """the caption's first line, cut at a word boundary to limit characters (an ellipsis, and
+    a closing quote when the cut leaves one open, count within the limit)"""
+    line = re.sub(r"\s+", " ", (caption.strip().splitlines() or [""])[0]).strip()
+    if len(line) <= limit:
+        return line
+    cut = line[:limit - 1]
+    cut = cut[:cut.rfind(" ")] if " " in cut else cut[:limit - 2]
+    cut = re.sub(r"[\s,;:.\u201c\"'(]+$", "", cut)
+    return cut + "\u2026" + ("\u201d" if cut.count("\u201c") > cut.count("\u201d") else "")
+
+
+def card_names(folder, caption, n):
+    """slide 1: the caption's first line (60 characters at most); the others, their own short
+    title or label from props.json (45 at most), else 'Slide N of M'. A name that has a dash or
+    an emoji is not used."""
+    try:
+        slides = json.load(open(os.path.join(folder, "props.json"), encoding="utf-8")).get("slides") or []
+    except (OSError, ValueError, AttributeError):
+        slides = []
+    if len(slides) != n:                         # the props do not match the slides: numbers only
+        slides = []
+    names = []
+    for i in range(n):
+        name = ""
+        if i == 0:
+            name = _first_line_name(caption)
+        elif slides:
+            for key in ("title", "label"):
+                t = re.sub(r"\s+", " ", re.sub(r"[*_]", "", str(slides[i].get(key) or ""))).strip()
+                if t and len(t) <= 45 and _name_ok(t):
+                    name = t; break
+        names.append(name if _name_ok(name) else f"Slide {i + 1} of {n}")
+    return names
+
+
+def link_carousel_fields(caption, pictures, names):
+    """the Page feed request for a link carousel (the token is added by _post)"""
+    kids = [{"link": FB_LINK, "picture": u, "name": nm} for u, nm in zip(pictures, names)]
+    return {"message": caption, "link": FB_LINK, "child_attachments": json.dumps(kids, ensure_ascii=False),
+            "multi_share_optimized": "false", "multi_share_end_card": "false"}
+
+
+def fallback_caption(caption, n):
+    """the caption with one line that the whole carousel is on Instagram, above the hashtags"""
+    line = f"All {n} slides are on our Instagram, {IG_HANDLE}."
+    paras = caption.strip().split("\n\n")
+    if len(paras) > 1 and re.fullmatch(r"(#\w+\s*)+", paras[-1].strip()):
+        return "\n\n".join(paras[:-1] + [line, paras[-1]])
+    return caption.strip() + "\n\n" + line
+
+
+def _refusal(e):
+    msg = str(e)
+    if re.search(r"(?i)owners? of the (url|link|domain)|ability to specify the picture|verif|domain|picture", msg):
+        return "Facebook refused the cards' pictures (upscdesk.com is not verified as the Page's domain yet)"
+    return "Facebook refused the link carousel"
+
+
+def fb_carousel(pngs, folder, caption, token, page):
+    """the Facebook leg: a link carousel of square cards, else one photo of slide 1. Returns
+    the post id; raises only when both fail."""
+    n = len(pngs)
+    try:
+        cards = square_cards(pngs, os.path.join(folder, "fb_cards"), _desk(folder))
+        pictures = [upload_photo(page, token, c)[1] for c in cards]
+        fields = link_carousel_fields(caption, pictures, card_names(folder, caption, n))
+        pid = _post(f"{page}/feed", token, **fields).get("id")
+        if not pid:
+            raise RuntimeError("Facebook answered without a post id")
+        print(f"::notice::meta: Facebook got the link carousel ({n} cards, first slide with a swipe to the rest)")
+        return pid
+    except Exception as e:
+        why = f"{_refusal(e)}: {str(e)[:300]}"
+    try:
+        r = _page_photo(page, token, pngs[0], caption=fallback_caption(caption, n), published="true")
+        pid = r.get("post_id") or r.get("id")
+        if not pid:
+            raise RuntimeError("Facebook answered without a post id")
+    except Exception as e:
+        raise RuntimeError(f"the single photo of slide 1 was not posted either ({str(e)[:300]}); first, {why}") from None
+    warn(f"meta: Facebook got slide 1 as a single photo, not the link carousel. Why: {why}")
+    return pid
+
+
+def plan(folder, pngs, caption, legs):
+    """dry run: the square cards built for real, and the requests the post would make"""
+    n = len(pngs)
+    try:
+        cards = square_cards(pngs, os.path.join(folder, "fb_cards"), _desk(folder))
+        print(f"meta: dry run: {len(cards)} square cards in {os.path.join(folder, 'fb_cards')}")
+    except Exception as e:
+        warn(f"meta: dry run: the Facebook cards could not be built ({e}); a real run would post slide 1 as a single photo")
+        cards = []
+    pics = [f"<public address of fb_cards/{os.path.basename(c)}, an unpublished Page photo>" for c in cards] or ["<card>"] * n
+    fields = link_carousel_fields(caption, pics, card_names(folder, caption, n))
+    shown = {**fields, "message": f"<the caption, {len(caption)} characters>", "child_attachments": json.loads(fields["child_attachments"])}
+    print("meta: dry run: Facebook POST /{page}/feed " + json.dumps(shown, ensure_ascii=False, indent=1))
+    print("meta: dry run: if Facebook refuses it, POST /{page}/photos with source=" + os.path.basename(pngs[0])
+          + ", published=true, caption=<the caption and: " + f"All {n} slides are on our Instagram, {IG_HANDLE}.>")
+    if "instagram" in legs:
+        print(f"meta: dry run: Instagram: {n} carousel items, a CAROUSEL container, media_publish")
 
 
 def post_carousel(folder, caption_path, result=None, done=None, dry_run=False):
@@ -337,6 +493,7 @@ def post_carousel(folder, caption_path, result=None, done=None, dry_run=False):
     if dry_run:
         print(f"meta: dry run: {len(pngs)} slides of {_png_size(pngs[0])[0]}x{_png_size(pngs[0])[1]}, caption {len(caption)} characters; "
               f"would post to {', '.join(legs) or 'nothing (both legs already posted)'}; nothing was posted")
+        plan(folder, pngs, caption, legs)
         save(); return state
     if not legs:
         print("meta: this carousel is already on Instagram and Facebook; not posting again")
@@ -344,18 +501,20 @@ def post_carousel(folder, caption_path, result=None, done=None, dry_run=False):
     if not token or not page:
         warn("meta: carousel not posted: META_PAGE_TOKEN or META_PAGE_ID is not set")
         save(); return state
-    try:
-        photos = [upload_photo(page, token, p) for p in pngs]
-        print(f"meta: {len(photos)} slides uploaded to the Page unpublished")
-    except Exception as e:
-        warn(f"meta: carousel not posted: a slide could not be uploaded ({e})")
-        save(); return state
+    photos = []
+    if "instagram" in legs and ig:
+        try:
+            photos = [upload_photo(page, token, p) for p in pngs]
+            print(f"meta: {len(photos)} slides uploaded to the Page unpublished")
+        except Exception as e:
+            warn(f"meta: carousel not posted: a slide could not be uploaded ({e})")
+            save(); return state
     for leg in legs:
         if leg == "instagram" and not ig:
             warn("meta: no META_IG_USER_ID; the carousel did not go to Instagram"); continue
         try:
             state[leg] = (ig_carousel([u for _, u in photos], caption, token, ig) if leg == "instagram"
-                          else fb_carousel([i for i, _ in photos], caption, token, page))
+                          else fb_carousel(pngs, folder, caption, token, page))
             print(f"meta: {leg} carousel published: {state[leg]}")
         except Exception as e:
             warn(f"meta: the {leg} carousel failed: {e}")
@@ -373,7 +532,7 @@ def main():
     ap.add_argument("--caption", help="the carousel's caption (a text file)")
     ap.add_argument("--result", help="the carousel's {instagram, facebook} ids (null when not posted) go here")
     ap.add_argument("--done", help="an earlier --result for the same carousel: legs it records are not posted again")
-    ap.add_argument("--dry-run", action="store_true", help="check the carousel and its caption; post nothing")
+    ap.add_argument("--dry-run", action="store_true", help="check the carousel and its caption, build the Facebook cards; post nothing")
     a = ap.parse_args()
     if a.carousel:
         post_carousel(a.carousel, a.caption, a.result, a.done, a.dry_run)
