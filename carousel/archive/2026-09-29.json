@@ -1,0 +1,38 @@
+{
+ "desk": "essay",
+ "date": "2026-09-29",
+ "facts": [
+  {
+   "kind": "essay",
+   "topic": "Today's topic",
+   "decode": "Owning more can narrow what we notice. What is real growth?",
+   "hub": "Acquisition versus awareness",
+   "items": [
+    {
+     "head": "Psychological",
+     "text": "the adaptation trap"
+    },
+    {
+     "head": "Economic",
+     "text": "India's spending data"
+    },
+    {
+     "head": "Cultural",
+     "text": "Gandhi's simplicity"
+    },
+    {
+     "head": "Social",
+     "text": "comparison and pressure"
+    },
+    {
+     "head": "Ecological",
+     "text": "the footprint of more"
+    },
+    {
+     "head": "Counter view",
+     "text": "growth as dignity"
+    }
+   ]
+  }
+ ]
+}
