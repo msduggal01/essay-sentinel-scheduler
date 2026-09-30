@@ -1,0 +1,168 @@
+{
+ "desk": "essay",
+ "date": "2026-09-30",
+ "facts": [
+  {
+   "kind": "essay",
+   "topic": "Today's topic",
+   "decode": "Two selves: the crowd's face and the night's face. Which is real?",
+   "hub": "Performed self vs private self",
+   "items": [
+    {
+     "head": "Psychological",
+     "text": "why we perform, and its cost"
+    },
+    {
+     "head": "Cultural",
+     "text": "screens make performance constant"
+    },
+    {
+     "head": "Technological",
+     "text": "platforms reward the mask"
+    },
+    {
+     "head": "Constitutional",
+     "text": "privacy law and the child"
+    },
+    {
+     "head": "Historical",
+     "text": "old traditions of private character"
+    },
+    {
+     "head": "Ethical",
+     "text": "resolving mask and self"
+    }
+   ]
+  }
+ ],
+ "carousel": {
+  "desk": "essay",
+  "format": "A",
+  "issue": "074",
+  "date": "30 September 2026",
+  "square": false,
+  "slides": [
+   {
+    "kind": "cover",
+    "kicker": "ESSAY OF THE DAY",
+    "headline": "Today's topic",
+    "size": 92,
+    "pills": [
+     "ESSAY PAPER",
+     "125 MARKS",
+     "1,000 TO 1,200 WORDS"
+    ],
+    "takeaway": "Two selves: the crowd's face and the night's face. Which is real?"
+   },
+   {
+    "kind": "pipeline",
+    "label": "The decode",
+    "title": "What it says, and what it asks",
+    "steps": [
+     {
+      "k": "WHAT IT SAYS",
+      "head": "An essay about self, image and inner truth.",
+      "body": "Two selves: the crowd's and the night's"
+     },
+     {
+      "k": "WHAT IT MEANS",
+      "head": "Two selves: the crowd's face and the night's face.",
+      "body": "Which one is the real you"
+     },
+     {
+      "k": "WHAT IT ASKS",
+      "head": "Which is real?"
+     },
+     {
+      "k": "YOUR THESIS",
+      "head": "Performed self vs private self"
+     }
+    ],
+    "optional": true
+   },
+   {
+    "kind": "lens",
+    "label": "Hub and spokes",
+    "title": "Six lenses to sweep, clockwise",
+    "hub": "Performed self vs private self",
+    "lenses": [
+     {
+      "title": "Psychological",
+      "sub": "why we perform, and its cost"
+     },
+     {
+      "title": "Cultural",
+      "sub": "screens make performance constant"
+     },
+     {
+      "title": "Technological",
+      "sub": "platforms reward the mask"
+     },
+     {
+      "title": "Constitutional",
+      "sub": "privacy law and the child"
+     },
+     {
+      "title": "Historical",
+      "sub": "old traditions of private character"
+     },
+     {
+      "title": "Ethical",
+      "sub": "resolving mask and self"
+     }
+    ],
+    "optional": true
+   },
+   {
+    "kind": "opening",
+    "title": "Open on a scene, not a definition",
+    "flat": "Everyone wears a mask and hides their feelings. Honesty is important.",
+    "why": "Restates topic, no tension, no thesis.",
+    "working": "A woman posts her fourth curated photo. Twice this week she has told her story. Once for the camera, once for herself.",
+    "optional": true
+   },
+   {
+    "kind": "budget",
+    "label": "Word budget",
+    "title": "Where the 1,150 words go",
+    "segments": [
+     {
+      "label": "Opening scene",
+      "n": 120
+     },
+     {
+      "label": "Decode and thesis",
+      "n": 130
+     },
+     {
+      "label": "Six lenses",
+      "n": 600
+     },
+     {
+      "label": "Counter-view, answered",
+      "n": 150
+     },
+     {
+      "label": "Way forward",
+      "n": 100
+     },
+     {
+      "label": "Closing image",
+      "n": 50
+     }
+    ],
+    "optional": true
+   },
+   {
+    "kind": "practice",
+    "title": "Write the first page *tonight*",
+    "lines": [
+     "The opening and one lens are enough to start.",
+     "Get it evaluated at *evaluate.upscdesk.com*, five free evaluations every month.",
+     "The full brief goes to subscribers. Subscribe from the link on our Telegram channel, *t.me/upscdesk_essay*."
+    ],
+    "pill": "SAVE THIS TOPIC"
+   }
+  ]
+ }
+}
