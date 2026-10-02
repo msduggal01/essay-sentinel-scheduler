@@ -1,0 +1,38 @@
+{
+ "desk": "essay",
+ "date": "2026-10-02",
+ "facts": [
+  {
+   "kind": "essay",
+   "topic": "Today's Topic, Decoded",
+   "decode": "Study narrows uncertainty but never closes it. The jump still happens blind.",
+   "hub": "Courage and uncertainty",
+   "items": [
+    {
+     "head": "Psychological",
+     "text": "the pull toward endless preparation"
+    },
+    {
+     "head": "Philosophical",
+     "text": "Gita, duty without attachment"
+    },
+    {
+     "head": "Historical",
+     "text": "freedom action without guarantees"
+    },
+    {
+     "head": "Scientific",
+     "text": "ISRO, flight after failure"
+    },
+    {
+     "head": "Economic",
+     "text": "Skyroot, a private orbital bet"
+    },
+    {
+     "head": "Ethical",
+     "text": "courage separated from recklessness"
+    }
+   ]
+  }
+ ]
+}
