@@ -1,0 +1,168 @@
+{
+ "desk": "essay",
+ "date": "2026-10-03",
+ "facts": [
+  {
+   "kind": "essay",
+   "topic": "Today's Topic And Its Weight",
+   "decode": "Every borrowed capacity has a lender. Who holds the terms when crisis hits?",
+   "hub": "Strategic autonomy and dependence",
+   "items": [
+    {
+     "head": "Economic",
+     "text": "the import bill exposure"
+    },
+    {
+     "head": "Political",
+     "text": "who sets the rule"
+    },
+    {
+     "head": "Historical",
+     "text": "an old, familiar pattern"
+    },
+    {
+     "head": "Ethical",
+     "text": "the state's duty to citizens"
+    },
+    {
+     "head": "Technological",
+     "text": "the long, patient fix"
+    },
+    {
+     "head": "Global",
+     "text": "alliances and buffers"
+    }
+   ]
+  }
+ ],
+ "carousel": {
+  "desk": "essay",
+  "format": "A",
+  "issue": "077",
+  "date": "3 October 2026",
+  "square": false,
+  "slides": [
+   {
+    "kind": "cover",
+    "kicker": "ESSAY OF THE DAY",
+    "headline": "Today's Topic And Its Weight",
+    "size": 92,
+    "pills": [
+     "ESSAY PAPER",
+     "125 MARKS",
+     "1,000 TO 1,200 WORDS"
+    ],
+    "takeaway": "Every borrowed capacity has a lender. Who holds the terms when crisis hits?"
+   },
+   {
+    "kind": "pipeline",
+    "label": "The decode",
+    "title": "What it says, and what it asks",
+    "steps": [
+     {
+      "k": "WHAT IT SAYS",
+      "head": "An essay about energy dependence on others.",
+      "body": "Lamp equals a nation's capacity"
+     },
+     {
+      "k": "WHAT IT MEANS",
+      "head": "Every borrowed capacity has a lender.",
+      "body": "Borrowed equals external dependence"
+     },
+     {
+      "k": "WHAT IT ASKS",
+      "head": "Who holds the terms when crisis hits?"
+     },
+     {
+      "k": "YOUR THESIS",
+      "head": "Strategic autonomy and dependence"
+     }
+    ],
+    "optional": true
+   },
+   {
+    "kind": "lens",
+    "label": "Hub and spokes",
+    "title": "Six lenses to sweep, clockwise",
+    "hub": "Strategic autonomy and dependence",
+    "lenses": [
+     {
+      "title": "Economic",
+      "sub": "the import bill exposure"
+     },
+     {
+      "title": "Political",
+      "sub": "who sets the rule"
+     },
+     {
+      "title": "Historical",
+      "sub": "an old, familiar pattern"
+     },
+     {
+      "title": "Ethical",
+      "sub": "the state's duty to citizens"
+     },
+     {
+      "title": "Technological",
+      "sub": "the long, patient fix"
+     },
+     {
+      "title": "Global",
+      "sub": "alliances and buffers"
+     }
+    ],
+    "optional": true
+   },
+   {
+    "kind": "opening",
+    "title": "Open on the courtroom scene",
+    "flat": "Nations depend on each other for trade and resources. Self reliance is important.",
+    "why": "Restates topic, no tension, no thesis.",
+    "working": "A court on another continent ruled on a tariff. Within months, an energy map was redrawn. No vote was cast by the nation it changed.",
+    "optional": true
+   },
+   {
+    "kind": "budget",
+    "label": "Word budget",
+    "title": "Where the 1,150 words go",
+    "segments": [
+     {
+      "label": "Opening scene",
+      "n": 120
+     },
+     {
+      "label": "Decode and thesis",
+      "n": 130
+     },
+     {
+      "label": "Six lenses",
+      "n": 600
+     },
+     {
+      "label": "Counter-view, answered",
+      "n": 150
+     },
+     {
+      "label": "Way forward",
+      "n": 100
+     },
+     {
+      "label": "Closing image",
+      "n": 50
+     }
+    ],
+    "optional": true
+   },
+   {
+    "kind": "practice",
+    "title": "Write the first page *tonight*",
+    "lines": [
+     "The opening and one lens are enough to start.",
+     "Get it evaluated at *evaluate.upscdesk.com*, five free evaluations every month.",
+     "The full brief goes to subscribers. Subscribe from the link on our Telegram channel, *t.me/upscdesk_essay*."
+    ],
+    "pill": "SAVE THIS TOPIC"
+   }
+  ]
+ }
+}
