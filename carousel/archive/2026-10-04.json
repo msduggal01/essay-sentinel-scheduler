@@ -1,0 +1,34 @@
+{
+ "desk": "essay",
+ "date": "2026-10-04",
+ "facts": [
+  {
+   "kind": "essay",
+   "topic": "A mirror that answers back can still only show you your own question.",
+   "decode": "AI sharpens the question asked, but knowing yourself stays a human task.",
+   "hub": "Information versus wisdom",
+   "items": [
+    {
+     "head": "Philosophical",
+     "text": "self versus information"
+    },
+    {
+     "head": "Psychological",
+     "text": "offloading and confidence"
+    },
+    {
+     "head": "Educational",
+     "text": "India's AI classroom"
+    },
+    {
+     "head": "Ethical, social",
+     "text": "judgment and loneliness"
+    },
+    {
+     "head": "Global",
+     "text": "a universal anxiety"
+    }
+   ]
+  }
+ ]
+}
