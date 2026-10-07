@@ -20,6 +20,10 @@ USAGE
 
 Slot times and the voiced/silent split are config constants below - easy to tune.
 The SAME engine serves Essay Desk via --desk essay (see DESKS).
+
+Since 7 October 2026 this is only the fallback for the day's Reel, and it uploads one Short
+at most (MAX_UPLOADS), never on a day the Reel went up (--skip-if, and upload_short.py
+--once-per-day closed). The ten-slot lineup still renders with --no-upload for previews.
 """
 
 import argparse
@@ -49,6 +53,10 @@ DESKS = {
 }
 
 IST_OFFSET = datetime.timedelta(hours=5, minutes=30)
+# One Reel or Short a day per desk (owner, 7 October 2026: the shared channel's notifications and
+# its Shorts feed). This script is the fallback for the day's Reel, so it uploads one at most,
+# whatever --limit says; --no-upload previews are not limited.
+MAX_UPLOADS = 1
 # Publish window (IST). The day's Shorts are spread evenly across it, so a small
 # --limit still trickles out across the day instead of clumping in the morning.
 DAY_START_IST = (9, 0)
@@ -283,8 +291,10 @@ BUILDERS = {
 # essay - here is the decode, a dimension, the anchor, the craft move.
 # ============================================================================
 def parse_essay(data):
+    import yt_meta
     slides = data["slides"]
-    ess = {"topic": "", "decode": "", "dimensions": [], "anchors": [],
+    # the topic itself: the topic slide's heading is often only its label ("Today's Topic")
+    ess = {"topic": yt_meta.essay_topic(data), "decode": "", "dimensions": [], "anchors": [],
            "craft": [], "model": ""}
     for s in slides:
         t = s.get("type")
@@ -465,7 +475,17 @@ def main():
     ap.add_argument("--no-upload", action="store_true", help="build only, do not upload")
     ap.add_argument("--limit", type=int, help="only the first N slots (testing)")
     ap.add_argument("--work", default="shorts_work")
+    ap.add_argument("--skip-if", metavar="FILE",
+                    help="do nothing when FILE exists (the Reel's --done-file: a Short already went up today)")
     args = ap.parse_args()
+
+    # The old Short is the day's fallback: never a second Short on a day the Reel went up, and at
+    # most one upload when it runs. The Reel's own upload leaves its id in --skip-if's file; a
+    # rerun on another runner is caught by upload_short.py --once-per-day closed, which looks at
+    # the desk's Shorts playlist for a video added today.
+    if args.skip_if and os.path.exists(args.skip_if):
+        print(f"The day's Reel went up ({args.skip_if}); no old Short today.")
+        return 0
 
     cfg = DESKS[args.desk]
     plan = DESK_PLAN[args.desk]
@@ -531,7 +551,7 @@ def main():
             continue
         pub = publish_at_utc(run_dt, ist)
         up = [sys.executable, os.path.join(HERE, "upload_short.py"),
-              "--video", mp4, "--meta", meta, "--playlist", cfg["playlist"]]
+              "--video", mp4, "--meta", meta, "--playlist", cfg["playlist"], "--once-per-day", "closed"]
         if os.path.exists(cover):
             up += ["--thumbnail", cover]
         if pub:
@@ -551,8 +571,14 @@ def main():
             crossposted = True
         print(f"     upload {'scheduled ' + pub if pub else 'public now'}: "
               f"{'ok' if ok else 'see log'}")
+        if "ALREADY TODAY:" in ru.stdout:
+            print("     a Short already went up today on the desk's playlist; no more today")
+            break
         if ok:
             uploaded += 1
+            # one Short a day: the fallback never posts a second
+            if uploaded >= MAX_UPLOADS:
+                break
 
     print(f"\n[{args.desk}] built {built}/{len(lineup)} Shorts, "
           f"uploaded {uploaded}. (best-effort; failures skipped)")

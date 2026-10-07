@@ -836,6 +836,16 @@ def generate_script(events, style, issue_no):
 # Meta
 # ----------------------------------------------------------------------------
 def build_meta(data, script, out_path):
+    if BRAND is BRAND_COPY["essay"]:
+        # the Essay Short is titled by its topic (yt_meta.short_titles); 32 of them went up as
+        # "Could you write this essay? Today's topic", the topic slide's label
+        import yt_meta
+        decode = next((s.get("concept") for s in data.get("slides", [])
+                       if s.get("type") == "concept" and s.get("concept")), "")
+        yt_meta.write_meta(out_path, yt_meta.short_titles(data),
+                           yt_meta.short_description(data, decode, verb="decode"),
+                           yt_meta.short_tags(data, last="essay structure"))
+        return
     evs = script.get("events", [])
     names = " + ".join(e.get("event", "").split(":")[0] for e in evs)[:60]
     title = f"{BRAND['meta_title']} {names} | UPSC in 30s #Shorts"[:100]

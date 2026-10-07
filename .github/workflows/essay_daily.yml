@@ -191,7 +191,9 @@ jobs:
         run: |
           set -o pipefail
           ISSUE=$(python3 -c "import json;print(json.load(open('video_script.json'))['issue_no'])")
-          python3 upload_youtube.py --video build/issue_$ISSUE/video_issue_$ISSUE.mp4 --meta build/issue_$ISSUE/youtube_meta.txt --thumbnail build/issue_$ISSUE/thumb.png --privacy public 2>&1 | tee upload_youtube.log
+          # the one upload of the day that notifies subscribers; its English captions follow it
+          python3 upload_youtube.py --video build/issue_$ISSUE/video_issue_$ISSUE.mp4 --meta build/issue_$ISSUE/youtube_meta.txt --thumbnail build/issue_$ISSUE/thumb.png --privacy public \
+            --captions build/issue_$ISSUE/captions.srt 2>&1 | tee upload_youtube.log
           URL=$(grep -o 'https://youtu.be/[^ ]*' upload_youtube.log | head -1 || true)
           if [ -z "$URL" ]; then echo "::error::The YouTube upload gave no URL; nothing was posted to Telegram"; exit 1; fi
           echo "YouTube: $URL"
@@ -252,15 +254,25 @@ jobs:
           # --cover: the Reel's cover, a still of the Reel where its hook is whole on screen, and
           # that moment in ms beside it; the YouTube thumbnail and the Instagram and Facebook cover
           python3 ops/reel_cut.py reel_props.json reel.mp4 reel_meta.txt --cover reel_cover.png
+          # no notification (the long video has the day's), English captions from reel.srt, the id
+          # in reel_uploaded.txt the moment YouTube takes it (the old Short below then stands
+          # down), and nothing at all if the playlist already had a Reel or Short today (a rerun)
           OUT=$(python3 upload_short.py --video reel.mp4 --meta reel_meta.txt --playlist "Essay Desk - Shorts" --privacy public --crosspost \
-            --cover reel_cover.png --thumb-offset "$(cat reel_cover_ms.txt 2>/dev/null)")
+            --cover reel_cover.png --thumb-offset "$(cat reel_cover_ms.txt 2>/dev/null)" \
+            --captions reel.srt --done-file reel_uploaded.txt --once-per-day open)
           echo "$OUT"
+          if echo "$OUT" | grep -q "^ALREADY TODAY:"; then echo "a Reel or Short already went up today; nothing more"; exit 0; fi
           echo "$OUT" | grep -q "URL:" || { echo "the Reel was not confirmed on YouTube"; exit 1; }
       - name: Say so when the Reel did not go out
         # continue-on-error keeps the job green, which hid every failed Reel; this puts it on
         # the run's page as a warning
         if: ${{ steps.reel.outcome == 'failure' }}
         run: |
+          if [ -f reel_uploaded.txt ]; then
+            echo "::warning::The day's Reel step failed after the Reel reached YouTube ($(cat reel_uploaded.txt)); no old Short today"
+            echo "- The day's Reel step failed after the Reel reached YouTube; no old Short today." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           echo "::warning::The day's Reel failed (see 'The day's Reel'); the old Short goes out in its place"
           echo "- The day's Reel failed; the old Short was tried in its place." >> "$GITHUB_STEP_SUMMARY"
       - name: Keep the Reel and its words
@@ -273,12 +285,14 @@ jobs:
             reel_props.json
             reel_meta.txt
             reel_cover.png
+            reel.srt
+            reel_alignment.json
             remotion/public/reel_props.json
           if-no-files-found: ignore
           retention-days: 14
       - name: The old Short, only when the new Reel did not go out
         id: oldshort
-        if: ${{ steps.reel.outcome != 'success' }}
+        if: ${{ steps.reel.outcome != 'success' && hashFiles('reel_uploaded.txt') == '' }}
         continue-on-error: true
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -292,7 +306,9 @@ jobs:
           META_PAGE_ID: ${{ secrets.META_PAGE_ID }}
           META_IG_USER_ID: ${{ secrets.META_IG_USER_ID }}
         run: |
-          if [ -f video_script.json ]; then python3 build_daily_shorts.py video_script.json --desk essay --limit 1; fi
+          # one Short at most, and none if the Reel went up after all (reel_uploaded.txt) or a Short
+          # is already on the playlist today (upload_short.py --once-per-day closed)
+          if [ -f video_script.json ]; then python3 build_daily_shorts.py video_script.json --desk essay --limit 1 --skip-if reel_uploaded.txt; fi
       - name: Say so when the old Short failed too
         if: ${{ steps.oldshort.outcome == 'failure' }}
         run: |

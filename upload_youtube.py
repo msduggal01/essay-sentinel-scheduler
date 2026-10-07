@@ -14,20 +14,31 @@ USAGE
       --privacy private            # private | unlisted | public  (default: private)
       [--thumbnail path.png]
       [--publish-at 2026-06-24T01:30:00Z]   # schedule (implies privacy=private)
+      [--captions build/issue_028/captions.srt]  # English captions, uploaded after the video
+      [--dry-run]                  # print what would be sent; no credentials, nothing sent
+
+The daily long video is the one upload a day that notifies subscribers (notifySubscribers
+true); the Reel and the Short do not (upload_short.py), which keeps the shared channel inside
+YouTube's three notifications a day. Its title is the first of the meta file's title and
+alternates that is not already the title of a recent upload on the channel.
 
 Prints the uploaded video URL.
 """
 import argparse
+import json
 import os
 import sys
+
+import yt_meta
 
 try:
     from google.oauth2.credentials import Credentials
     from googleapiclient.discovery import build
     from googleapiclient.http import MediaFileUpload
 except ImportError:
-    print("Missing libraries. Run:\n  pip3 install google-api-python-client google-auth")
-    sys.exit(1)
+    if "--dry-run" not in sys.argv:
+        print("Missing libraries. Run:\n  pip3 install google-api-python-client google-auth")
+        sys.exit(1)
 
 TOKEN_URI = "https://oauth2.googleapis.com/token"
 SCOPES = ["https://www.googleapis.com/auth/youtube.upload",
@@ -36,18 +47,38 @@ EDUCATION_CATEGORY = "27"
 
 
 def parse_meta(path):
-    """youtube_meta.txt = title (line 1), blank, description+chapters, blank, 'Tags: a, b, c'."""
-    lines = open(path, encoding="utf-8").read().split("\n")
-    title = lines[0].strip()
-    tags = []
-    body = []
-    for ln in lines[1:]:
-        if ln.startswith("Tags:"):
-            tags = [t.strip() for t in ln[len("Tags:"):].split(",") if t.strip()]
-            break
-        body.append(ln)
-    description = "\n".join(body).strip()
+    """youtube_meta.txt = title (line 1), blank, description+chapters, blank, 'Tags: a, b, c',
+    then 'Alternates: ...' (yt_meta.write_meta)"""
+    title, description, tags, _ = yt_meta.parse_meta(path)
     return title, description, tags
+
+
+def warn(msg):
+    """a warning GitHub shows on the run's page, and a line in the run's summary"""
+    print(f"::warning::{msg}")
+    summary = os.environ.get("GITHUB_STEP_SUMMARY")
+    if summary:
+        try:
+            with open(summary, "a", encoding="utf-8") as f:
+                f.write(f"- {msg}\n")
+        except OSError:
+            pass
+
+
+def upload_captions(yt, vid, srt):
+    """English captions from the narration; a failure is a warning, the video stands"""
+    if not srt:
+        return
+    if not os.path.exists(srt):
+        warn(f"no captions file at {srt}; the video is up without captions")
+        return
+    try:
+        yt.captions().insert(part="snippet",
+                             body={"snippet": {"videoId": vid, "language": "en", "name": "English"}},
+                             media_body=MediaFileUpload(srt)).execute()
+        print("Captions uploaded.")
+    except Exception as ex:
+        warn(f"the video is on YouTube, but its captions were not uploaded: {str(ex)[:200]}")
 
 
 def creds_from_env():
@@ -70,10 +101,25 @@ def main():
     ap.add_argument("--publish-at", help="ISO8601 UTC, e.g. 2026-06-24T01:30:00Z (schedules; forces private)")
     ap.add_argument("--playlist", default="The Essay Desk - UPSC Essay Masterclass",
                     help="playlist title to add the video to (found by name, created if missing)")
+    ap.add_argument("--captions", help="an SRT to upload as the English captions after the video")
+    ap.add_argument("--dry-run", action="store_true",
+                    help="print the request and the captions; no credentials, nothing is sent")
     args = ap.parse_args()
 
-    title, description, tags = parse_meta(args.meta)
-    yt = build("youtube", "v3", credentials=creds_from_env())
+    title, description, tags, alternates = yt_meta.parse_meta(args.meta)
+    if args.dry_run:
+        yt = None
+    else:
+        yt = build("youtube", "v3", credentials=creds_from_env())
+        # never the title of an earlier upload: the channel's recent uploads, all three desks
+        try:
+            taken = yt_meta.recent_titles(yt)
+            picked = yt_meta.pick_title([title] + alternates, taken)
+            if picked != title:
+                print(f"Title {title!r} is already on the channel; using {picked!r}")
+            title = picked
+        except Exception as ex:
+            warn(f"the channel's recent titles could not be read ({str(ex)[:120]}); the title is not checked for repeats")
 
     status = {
         "privacyStatus": "private" if args.publish_at else args.privacy,
@@ -94,9 +140,18 @@ def main():
         "status": status,
     }
 
+    if args.dry_run:
+        print("DRY RUN: videos().insert(part='snippet,status', notifySubscribers=True, body=")
+        print(json.dumps(body, indent=1, ensure_ascii=False))
+        if args.captions:
+            print(f"DRY RUN: then captions().insert from {args.captions}"
+                  + ("" if os.path.exists(args.captions) else " (missing: it would be a warning)"))
+        return
+
     print(f"Uploading: {title}")
     media = MediaFileUpload(args.video, chunksize=-1, resumable=True, mimetype="video/mp4")
-    req = yt.videos().insert(part="snippet,status", body=body, media_body=media)
+    # the day's long video is the one upload that notifies subscribers
+    req = yt.videos().insert(part="snippet,status", body=body, media_body=media, notifySubscribers=True)
 
     response = None
     while response is None:
@@ -113,6 +168,8 @@ def main():
         except Exception as ex:
             # custom thumbnails require a phone-verified channel; don't let this block the playlist step
             print("Thumbnail skipped (channel not verified for custom thumbnails?):", str(ex)[:120])
+
+    upload_captions(yt, vid, args.captions)
 
     # add to the playlist (found by title, created if missing)
     if args.playlist:

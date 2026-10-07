@@ -27,10 +27,26 @@ does not take is a warning on the run and a line in its summary; the upload stan
 
 A vertical video <= 3 min with #Shorts in the title/description is auto-classified
 by YouTube as a Short. Prints the uploaded video URL.
+
+A Reel or a Short never notifies subscribers (notifySubscribers false): the day's long video
+does, and the shared channel stays inside YouTube's three notifications a day. Its title is
+the first of the meta file's title and alternates that is not already the title of a recent
+upload on the channel.
+
+  --captions reel.srt        English captions, uploaded after the video (a failure is a warning)
+  --done-file F              the video's id is written to F the moment the upload is accepted,
+                             so the old Short's fallback in the same job knows a Short went up
+  --once-per-day open|closed skip the upload when the playlist already had a video added today
+                             (India time) and print "ALREADY TODAY:"; "open" uploads anyway when
+                             the playlist cannot be read, "closed" (the old Short's fallback) does not
+  --dry-run                  print the request; no credentials, nothing sent
 """
 import argparse
+import json
 import os
 import sys
+
+import yt_meta
 
 
 def warn(msg):
@@ -49,9 +65,10 @@ try:
     from googleapiclient.discovery import build
     from googleapiclient.http import MediaFileUpload
 except ImportError:
-    print("Missing libraries. Run:\n  pip3 install google-api-python-client google-auth")
-    # non-blocking: do not fail the daily run for a Shorts dependency
-    sys.exit(0)
+    if "--dry-run" not in sys.argv:
+        print("Missing libraries. Run:\n  pip3 install google-api-python-client google-auth")
+        # non-blocking: do not fail the daily run for a Shorts dependency
+        sys.exit(0)
 
 TOKEN_URI = "https://oauth2.googleapis.com/token"
 SCOPES = ["https://www.googleapis.com/auth/youtube.upload",
@@ -61,17 +78,9 @@ SHORTS_PLAYLIST = "Sociology Desk - Shorts"
 
 
 def parse_meta(path):
-    """short_meta.txt = title (line 1), blank, description, blank, 'Tags: a, b, c'."""
-    lines = open(path, encoding="utf-8").read().split("\n")
-    title = lines[0].strip()
-    tags = []
-    body = []
-    for ln in lines[1:]:
-        if ln.startswith("Tags:"):
-            tags = [t.strip() for t in ln[len("Tags:"):].split(",") if t.strip()]
-            break
-        body.append(ln)
-    description = "\n".join(body).strip()
+    """short_meta.txt = title (line 1), blank, description, blank, 'Tags: a, b, c', then
+    'Alternates: ...' (yt_meta.write_meta)"""
+    title, description, tags, _ = yt_meta.parse_meta(path)
     return title, description, tags
 
 
@@ -135,6 +144,12 @@ def main():
                     help="the cover's moment in ms, passed to meta_publish.py for Instagram's fallback frame")
     ap.add_argument("--no-playlist", action="store_true",
                     help="skip adding the Short to the Shorts playlist")
+    ap.add_argument("--captions", help="an SRT to upload as the English captions after the video")
+    ap.add_argument("--done-file", help="write the video's id here as soon as the upload is accepted")
+    ap.add_argument("--once-per-day", choices=["open", "closed"],
+                    help="skip when the playlist already had a video added today (India time)")
+    ap.add_argument("--dry-run", action="store_true",
+                    help="print the request; no credentials, nothing is sent")
     args = ap.parse_args()
 
     if not os.path.exists(args.video):
@@ -144,11 +159,35 @@ def main():
         print(f"No meta at {args.meta}; skipping (non-blocking).")
         return 0
 
-    title, description, tags = parse_meta(args.meta)
+    title, description, tags, alternates = yt_meta.parse_meta(args.meta)
     title, description = ensure_shorts(title, description)
 
     try:
-        yt = build("youtube", "v3", credentials=creds_from_env())
+        yt = None if args.dry_run else build("youtube", "v3", credentials=creds_from_env())
+
+        # one Reel or Short a day on the desk's playlist: a rerun, or the old Short after a Reel
+        # that went up, must not add a second
+        if args.once_per_day and not args.dry_run:
+            try:
+                if yt_meta.short_already_today(yt, args.playlist):
+                    print(f"ALREADY TODAY: {args.playlist!r} already had a video added today; nothing uploaded")
+                    return 0
+            except Exception as ex:
+                if args.once_per_day == "closed":
+                    warn(f"the Shorts playlist could not be read ({str(ex)[:120]}), so no Short was uploaded")
+                    return 0
+                warn(f"the Shorts playlist could not be read ({str(ex)[:120]}); uploading anyway")
+
+        # never the title of an earlier upload: the channel's recent uploads, all three desks
+        if not args.dry_run:
+            try:
+                picked = yt_meta.pick_title([title] + [ensure_shorts(a, "")[0] for a in alternates],
+                                            yt_meta.recent_titles(yt))
+                if picked != title:
+                    print(f"Title {title!r} is already on the channel; using {picked!r}")
+                title = picked
+            except Exception as ex:
+                warn(f"the channel's recent titles could not be read ({str(ex)[:120]}); the title is not checked for repeats")
 
         body = {
             "snippet": {
@@ -168,9 +207,18 @@ def main():
         if args.publish_at:
             body["status"]["publishAt"] = args.publish_at
 
+        if args.dry_run:
+            print("DRY RUN: videos().insert(part='snippet,status', notifySubscribers=False, body=")
+            print(json.dumps(body, indent=1, ensure_ascii=False))
+            if args.captions:
+                print(f"DRY RUN: then captions().insert from {args.captions}"
+                      + ("" if os.path.exists(args.captions) else " (missing: it would be a warning)"))
+            return 0
+
         print(f"Uploading Short: {title}")
         media = MediaFileUpload(args.video, chunksize=-1, resumable=True, mimetype="video/mp4")
-        req = yt.videos().insert(part="snippet,status", body=body, media_body=media)
+        # a Short never notifies: the day's long video is the one notification
+        req = yt.videos().insert(part="snippet,status", body=body, media_body=media, notifySubscribers=False)
         response = None
         while response is None:
             progress, response = req.next_chunk()
@@ -178,6 +226,12 @@ def main():
                 print(f"  {int(progress.progress() * 100)}%")
         vid = response["id"]
         print("Uploaded. Video ID:", vid)
+        if args.done_file:
+            try:
+                with open(args.done_file, "w") as f:
+                    f.write(vid + "\n")
+            except OSError as ex:
+                warn(f"could not record the upload in {args.done_file}: {ex}")
 
         thumb = args.thumbnail or args.cover
         if thumb and os.path.exists(thumb):
@@ -189,6 +243,18 @@ def main():
                 warn(f"the Short is on YouTube, but its thumbnail was not set: {str(ex)[:200]}")
         elif thumb:
             warn(f"no thumbnail at {thumb}; YouTube picks the Short's frame itself")
+
+        if args.captions:
+            if not os.path.exists(args.captions):
+                warn(f"no captions file at {args.captions}; the Short is up without captions")
+            else:
+                try:
+                    yt.captions().insert(part="snippet",
+                                         body={"snippet": {"videoId": vid, "language": "en", "name": "English"}},
+                                         media_body=MediaFileUpload(args.captions)).execute()
+                    print("Captions uploaded.")
+                except Exception as ex:
+                    warn(f"the Short is on YouTube, but its captions were not uploaded: {str(ex)[:200]}")
 
         if not args.no_playlist:
             try:

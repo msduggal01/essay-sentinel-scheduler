@@ -20,7 +20,11 @@ OUTPUT (under build/issue_NNN/)
   audio/    the per-slide mp3 narration
   clips/    the per-slide video clips
   video_issue_NNN.mp4   the final video
-  youtube_meta.txt      title, description with chapter timestamps, tags
+  youtube_meta.txt      title (and alternates), description with chapter timestamps, tags (yt_meta.py)
+  captions.srt          English captions from the voice's word timings
+  timings.json, alignment.json   what --meta-only rebuilds the two above from
+
+  --meta-only        Rebuild youtube_meta.txt and captions.srt from a rendered issue, no voice.
 """
 
 import os
@@ -471,6 +475,10 @@ def main():
     args = sys.argv[1:]
     slides_only = "--slides-only" in args
     args = [a for a in args if a != "--slides-only"]
+    if "--meta-only" in args:
+        args.remove("--meta-only")
+        meta_only(args[0])
+        return
 
     limit = None
     if "--limit" in args:
@@ -587,7 +595,7 @@ def main():
     if cur: chunks.append(cur)
 
     print(f"Generating narration in {len(chunks)} continuous take(s) for {len(work)} slides...")
-    raw_parts, slide_end_global, cum = [], [], 0.0
+    raw_parts, slide_end_global, cum, align_parts = [], [], 0.0, []
     for k, idxs in enumerate(chunks):
         combined = SEP.join(norm[i] for i in idxs)
         bounds, pos = [], 0
@@ -604,6 +612,8 @@ def main():
         ends = alignment.get("character_end_times_seconds", [])
         n = len(ends)
         part_dur = duration(part)
+        align_parts.append({"offset": cum, "characters": alignment.get("characters", []),
+                            "starts": alignment.get("character_start_times_seconds", []), "ends": ends})
         for b in bounds:
             et = ends[min(b, n - 1)] if n else part_dur
             slide_end_global.append(cum + et)
@@ -645,58 +655,73 @@ def main():
     total = sum(durations.values())
     print(f"\nFinal video: {final}  ({fmt_ts(total)})")
 
-    # build YouTube metadata with chapter timestamps
-    cum = {}
-    running = 0.0
+    # the timings and the voice's word alignment are kept beside the video, so the metadata and
+    # the captions can be rebuilt without the voice (python3 render_video.py SCRIPT --meta-only)
+    with open(os.path.join(base, "timings.json"), "w") as f:
+        json.dump({"durations": {str(k): v for k, v in durations.items()}, "total": total}, f)
+    with open(os.path.join(base, "alignment.json"), "w") as f:
+        json.dump({"speed": speed, "parts": align_parts}, f)
+    write_meta_and_captions(data, work, durations, base)
+
+
+def write_meta_and_captions(data, work, durations, base):
+    """youtube_meta.txt (title and alternates, description with chapters from the slide starts,
+    tags) and captions.srt (from the narration's word timings, if they were kept)"""
+    import yt_meta
+    starts, running = {}, 0.0
     for sl in work:
-        cum[sl["id"]] = running
+        starts[sl["id"]] = running
         running += durations[sl["id"]]
-
-    # hashtags for the DESCRIPTION text (YouTube shows the first 3 above the title,
-    # and they are clickable/searchable - unlike the low-value tags field). Evergreen
-    # brand tags first, then this episode's own tags. Cap at 12 (YouTube ignores >15).
-    # no year in the evergreen tags: "UPSCMains2026" went stale the moment that Mains was sat
-    EVERGREEN = ["UPSC", "UPSCEssay", "UPSCMains", "EssayWriting", "CivilServices", "IAS"]
-    def _camel(t):
-        return re.sub(r"[^0-9A-Za-z ]", "", str(t)).title().replace(" ", "")
-    seen, hlist = set(), []
-    for w in EVERGREEN + [_camel(t) for t in data.get("tags", [])]:
-        lw = w.lower()
-        if w and lw not in seen:
-            seen.add(lw); hlist.append("#" + w)
-        if len(hlist) >= 12:
-            break
-    hashtags = " ".join(hlist)
-
-    lines = []
-    lines.append(data["video_title"])
-    lines.append("")
-    lines.append(data["video_description"])
-    lines.append("")
-    lines.append(hashtags)
-    lines.append("")
-    # the video's last line sends viewers here, so both links are full https addresses (an
-    # empty ESSAY_SUBSCRIBE_URL secret used to leave the subscribe line blank)
-    subscribe = (os.environ.get("ESSAY_SUBSCRIBE_URL") or "").strip() or "https://subscribe.upscdesk.com/essay/"
+    chaps = yt_meta.chapters(data, starts, running)
+    titles = yt_meta.long_titles(data)
+    # the video's last line sends viewers to the description, so the links are full https
+    # addresses (an empty ESSAY_SUBSCRIBE_URL secret used to leave the subscribe line blank)
+    subscribe = (os.environ.get("ESSAY_SUBSCRIBE_URL") or "").strip() or yt_meta.SUBSCRIBE
     if not subscribe.startswith("http"):
         subscribe = "https://" + subscribe.lstrip("/")
-    lines.append("Join our Telegram channel for the daily masterclass and the latest updates:")
-    lines.append("https://t.me/upscdesk_essay   (@upscdesk_essay)")
-    lines.append("")
-    lines.append("Subscribe to the full Essay brief, two model essays with the examiner's commentary, three mornings a week:")
-    lines.append(subscribe)
-    lines.append("")
-    lines.append("Chapters:")
-    lines.append(f"{fmt_ts(0)} Introduction")
-    for ch in data.get("chapters", []):
-        sid = ch["slide_id"]
-        lines.append(f"{fmt_ts(cum.get(sid, 0))} {ch['title']}")
-    lines.append("")
-    lines.append("Tags: " + ", ".join(data.get("tags", [])))
+    desc = yt_meta.long_description(data, titles[0], chaps, subscribe)
     meta = os.path.join(base, "youtube_meta.txt")
-    with open(meta, "w") as f:
-        f.write("\n".join(lines))
-    print(f"YouTube metadata: {meta}")
+    yt_meta.write_meta(meta, titles, desc, yt_meta.long_tags(data))
+    print(f"YouTube metadata: {meta}  ({titles[0]!r}, {len(chaps)} chapters)")
+    if len(chaps) < 3:
+        print("::warning::the long video has fewer than three chapters of ten seconds; its description carries none")
+
+    al = os.path.join(base, "alignment.json")
+    if not os.path.exists(al):
+        return
+    a = json.load(open(al))
+    speed = float(a.get("speed") or 1.0)
+    words = []
+    for part in a.get("parts", []):
+        # the narration is quickened once, as a whole, so a time in the raw takes over the speed is
+        # its time in the video
+        words += yt_meta.words_from_alignment(part.get("characters", []), part.get("starts", []),
+                                              part.get("ends", []), offset=part.get("offset", 0.0),
+                                              scale=1.0 / speed)
+    if not words:
+        print("::warning::no word timings in the voice's alignment; the long video goes up without captions")
+        return
+    text = yt_meta.srt(words)
+    errs = yt_meta.check_srt(text)
+    if errs:
+        print("::warning::captions: " + "; ".join(errs[:5]))
+    srt = os.path.join(base, "captions.srt")
+    with open(srt, "w", encoding="utf-8") as f:
+        f.write(text)
+    print(f"Captions: {srt}  ({text.count(chr(10) + chr(10)) + 1} cues)")
+
+
+def meta_only(json_path):
+    """rebuild youtube_meta.txt and captions.srt from a rendered issue's timings.json and
+    alignment.json, without the voice"""
+    data = json.load(open(json_path))
+    slides = data["slides"]
+    add_links_line(slides)
+    base = os.path.join("build", f"issue_{data['issue_no']}")
+    t = json.load(open(os.path.join(base, "timings.json")))
+    durations = {int(k): v for k, v in t["durations"].items()}
+    write_meta_and_captions(data, [s for s in slides if s["id"] in durations], durations, base)
+
 
 if __name__ == "__main__":
     main()

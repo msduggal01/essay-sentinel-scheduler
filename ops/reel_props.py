@@ -21,6 +21,9 @@ the day falls back to the old Short.
 """
 import json, os, re, sys, urllib.request
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import yt_meta   # noqa: E402  the topic itself, not the topic slide's label
+
 MODEL = os.environ.get("REEL_MODEL", "claude-sonnet-5")
 DIRECTIVES = ["Critically examine", "Critically analyse", "Critically evaluate", "Compare and contrast", "Discuss",
               "Examine", "Analyse", "Evaluate", "Comment", "Elucidate", "Explain", "Assess"]
@@ -196,7 +199,7 @@ def check_soc(c, d):
 def check_essay(c, d):
     errs = []
     clean_words(c, "reply", errs)
-    topic = (first(d, "topic_title").get("heading") or "").strip()
+    topic = yt_meta.essay_topic(d)
     # the model is still asked for the lengths in ESSAY_SCHEMA; a line a little over them still
     # fits (DeskShort.tsx sets a long topic, literal reading, hub, sheet line or note smaller),
     # so only a clear overrun is sent back. Every scene was rendered with every field at these
@@ -230,7 +233,9 @@ def main():
                               schema=SOC_SCHEMA.replace("DIRECTIVES", ", ".join(DIRECTIVES)))
         check = check_soc
     else:
-        topic = (first(d, "topic_title").get("heading") or "").strip()
+        # the topic slide's heading is often only a label ("Today's Topic"), which is what the
+        # Reels showed and what 32 Shorts were titled; the topic itself is the line the day set
+        topic = yt_meta.essay_topic(d)
         system = RULES.format(desk="Essay", work="essay", extra=ESSAY_EXTRA + f"\nThe topic as set is: {topic}", schema=ESSAY_SCHEMA)
         check = check_essay
     user = spoken_text(d)
@@ -259,7 +264,11 @@ def main():
         data = {"desk": "essay", "eyebrow": "UPSC Essay · 125 Marks", "hook2": "Could you write this essay?",
                 "cta_line": "Write this essay, then get it evaluated", "badge": "ESSAY EVALUATION", **c}
     data["issue"] = issue
-    json.dump({"data": data}, open(out, "w"), ensure_ascii=False, indent=1)
+    # what reel_cut.py needs from the day's script for the Reel's YouTube title, description and
+    # tags (yt_meta.py); it stays out of the composition's props
+    script = {k: d.get(k) for k in ("issue_no", "date", "video_title", "thumbnail", "thumbnail_text", "tags")}
+    script["slides"] = [s for s in d.get("slides", []) if s.get("type") == "topic_title"][:1]
+    json.dump({"data": data, "script": script}, open(out, "w"), ensure_ascii=False, indent=1)
     print(f"reel_props: {desk} issue {issue}: " + (data.get("headline") or data.get("topic", "")))
 
 

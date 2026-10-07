@@ -5,6 +5,9 @@ reel_cut.py - voice the Reel, time every element to its word, render it, write i
   python3 ops/reel_cut.py reel_props.json reel.mp4 reel_meta.txt
   python3 ops/reel_cut.py reel_props.json reel.mp4 reel_meta.txt --cover reel_cover.png
 
+Beside reel.mp4 it also writes reel.srt (English captions from the voice's word timings, cues
+of two lines of 42 characters and six seconds at most) and reel_alignment.json (the timings).
+
 The narration is built from the Reel's own lines, so what is said is what is on screen. It
 goes to ElevenLabs (eleven_v3, /with-timestamps, the desk's voice from VOICE_ID), is quickened
 with ffmpeg (v3 ignores its speed setting), and each beat is the moment its cue phrase is
@@ -24,6 +27,9 @@ Shorts' three minutes. Nothing else depends on the length: the composition takes
 duration from "seconds" and every beat is scaled by the same TEMPO.
 """
 import base64, json, os, re, subprocess, sys, urllib.request
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import yt_meta   # noqa: E402  titles, descriptions and captions
 
 TEMPO = float(os.environ.get("REEL_TEMPO", "1.30"))
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -129,7 +135,20 @@ def fit_title(base, tail):
     return out.rstrip(",:;") + "... #Shorts"
 
 
-def meta(d, path):
+def meta(d, path, script=None):
+    if d["desk"] == "essay":
+        # the topic itself leads the title (yt_meta.short_titles), never the 'Could you write this
+        # essay?' line; the day's script (reel_props.py keeps what is needed) gives the key phrase,
+        # theme and tags, and a Reel cut from older props falls back to its own topic
+        src = dict(script or {})
+        if not src.get("thumbnail"):
+            src["thumbnail"] = {"topic": d.get("topic", "")}
+        src.setdefault("issue_no", d.get("issue", ""))
+        lenses = [l["title"] for l in d.get("lenses", [])]
+        yt_meta.write_meta(path, yt_meta.short_titles(src),
+                           yt_meta.short_description(src, d.get("decode", ""), lenses),
+                           yt_meta.short_tags(src, [d.get("hub", "")] + lenses[:2]))
+        return
     if d["desk"] == "sociology":
         title = fit_title(f"Is this Sociology? {d['news']['title']}: {d['concept']['title']}", " | UPSC in 60s #Shorts")
         desc = (f"{d['headline']} Read it as sociology: {d['concept']['title']}, with {d['thinker']['title']}.\n\n"
@@ -145,6 +164,18 @@ def meta(d, path):
         tags = ["UPSC", "UPSC Essay", "Essay writing", "UPSC Mains"] + [l["title"] for l in d["lenses"][:3]]
     with open(path, "w") as f:
         f.write(title + "\n\n" + desc + "\n\nTags: " + ", ".join(tags) + "\n")
+
+
+def captions(al, srt_path):
+    """the Reel's English captions from the voice's own word timings, quickened as the voice is"""
+    words = yt_meta.words_from_alignment(al["characters"], al["character_start_times_seconds"],
+                                         al["character_end_times_seconds"], scale=1.0 / TEMPO)
+    text = yt_meta.srt(words)
+    errs = yt_meta.check_srt(text)
+    if errs:
+        print("::warning::Reel captions: " + "; ".join(errs[:5]))
+    open(srt_path, "w", encoding="utf-8").write(text)
+    print(f"reel_cut: captions {srt_path} ({text.count(chr(10) + chr(10)) + 1} cues)")
 
 
 def cover_at(d, B):
@@ -171,10 +202,18 @@ def main():
     if "--cover" in args:
         i = args.index("--cover"); cover = args[i + 1]; del args[i:i + 2]
     src, out, meta_path = args[0], args[1], args[2]
-    props = json.load(open(src)); d = props["data"]
+    props = json.load(open(src)); d = props["data"]; script = props.get("script")
     text, cues = narration(d)
     print("reel_cut: narration:", text)
     audio, al = tts(text, os.environ["VOICE_ID"])
+    # the alignment is kept beside the Reel (its captions can be rebuilt from it) and the captions
+    # are written now, before the render, so a failed render still leaves them for a rerun
+    base = os.path.splitext(out)[0]
+    json.dump(al, open(base + "_alignment.json", "w"))
+    try:
+        captions(al, base + ".srt")
+    except Exception as e:
+        print(f"::warning::the Reel's captions were not made ({e}); it goes up without them")
     pub = os.path.join(REMOTION, "public"); os.makedirs(pub, exist_ok=True)
     raw, fast = os.path.join(pub, "reel_voice_raw.mp3"), os.path.join(pub, "reel_voice.mp3")
     open(raw, "wb").write(audio)
@@ -192,7 +231,7 @@ def main():
     print("reel_cut: beats", json.dumps(B), "seconds", seconds)
     subprocess.run(["npx", "remotion", "render", "src/index.ts", "DeskShort", os.path.abspath(out), f"--props={pj}", "--log=error"],
                    cwd=REMOTION, check=True)
-    meta(d, meta_path)
+    meta(d, meta_path, script)
     print("reel_cut: made", out)
     if cover:
         # render cover: the Reel is made either way, so a failed still is a warning, and the
