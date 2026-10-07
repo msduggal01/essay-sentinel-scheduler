@@ -87,8 +87,9 @@ hook    at most SIX words, the essay topic's key phrase as a statement or a ques
         case, read in a glance on a phone. It names the topic's own idea (never "Today's topic",
         never the exam, never the desk). No full stop at the end; a question ends with "?".
 accent  the hook's key words, two or three words copied exactly from the hook (a substring of it).
-word    the topic's one key word, a single word of at most 12 letters taken from the topic or
-        the hook (e.g. "Ballot", "Wisdom", "Library"); "" if no single word carries the topic."""
+word    the topic's one key word, a single word of at most 12 letters taken from the topic and
+        NOT already in the hook (it is drawn large above the hook, so a repeat reads twice), e.g.
+        "Ballot", "Wisdom", "Library"; "" if no such word carries the topic."""
 
 
 def call(user):
@@ -133,6 +134,10 @@ def check(c, topic):
     # the key word is a bonus: a bad one is dropped (T2 and T5 are then skipped), never retried for
     if word and not (re.fullmatch(r"[A-Za-z]{3,12}", word) and re.search(rf"\b{re.escape(word)}", f"{hook} {topic}", re.I)):
         print(f"desk_thumb: key word {word!r} dropped (one word of 3 to 12 letters from the topic or hook)")
+        word = ""
+    # drawn large above the hook, a word the hook already says reads twice ("LENDER" over "...the lender")
+    if word and re.search(rf"\b{re.escape(word[:max(4, len(word) - 2)])}", hook, re.I):
+        print(f"desk_thumb: key word {word!r} dropped (the hook already says it)")
         word = ""
     return errs, {"hook": hook, "accent": accent, "word": word}
 
