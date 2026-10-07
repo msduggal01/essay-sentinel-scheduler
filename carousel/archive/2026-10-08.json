@@ -1,0 +1,34 @@
+{
+ "desk": "essay",
+ "date": "2026-10-08",
+ "facts": [
+  {
+   "kind": "essay",
+   "topic": "Today's topic",
+   "decode": "Access to information is not possession of judgment earned by effort.",
+   "hub": "Knowledge versus wisdom",
+   "items": [
+    {
+     "head": "Historical",
+     "text": "Nalanda's fall and rebirth"
+    },
+    {
+     "head": "Educational",
+     "text": "degrees without competence"
+    },
+    {
+     "head": "Technological",
+     "text": "AI and cognitive offloading"
+    },
+    {
+     "head": "Ethical",
+     "text": "judgment in public service"
+    },
+    {
+     "head": "Cultural",
+     "text": "a filled vessel, a lit flame"
+    }
+   ]
+  }
+ ]
+}
