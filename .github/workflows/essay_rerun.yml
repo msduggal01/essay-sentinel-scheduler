@@ -1,0 +1,61 @@
+# One-off: publish a day's Essay video from that day's saved script (artifact `script` of the
+# daily run), without starting a new agent session, so no brief email is sent twice. Used when
+# the daily run made the script and the brief but failed at the voice step (7 Oct 2026).
+name: Essay video from a saved script
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "The daily run whose `script` artifact to use"
+        required: true
+        type: string
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: essay-daily
+  cancel-in-progress: false
+env:
+  UPSC_DESK: essay
+jobs:
+  video:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install ffmpeg, fonts and Python libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-liberation
+          pip install -r requirements.txt
+      - name: The day's saved script
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run download "${{ inputs.run_id }}" -n script -D saved
+          cp saved/video_script.json video_script.json
+          python3 -c "import json;d=json.load(open('video_script.json'));print('issue', d['issue_no'], d.get('date'))"
+      - name: Render video
+        env:
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          ESSAY_VOICE_ID: ${{ secrets.ESSAY_VOICE_ID }}
+        run: python3 render_video.py video_script.json
+      - name: Upload to YouTube and post to Telegram
+        env:
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHANNEL: ${{ secrets.TELEGRAM_CHANNEL }}
+          ESSAY_SUBSCRIBE_URL: ${{ secrets.ESSAY_SUBSCRIBE_URL }}
+        run: |
+          set -o pipefail
+          ISSUE=$(python3 -c "import json;print(json.load(open('video_script.json'))['issue_no'])")
+          python3 upload_youtube.py --video build/issue_$ISSUE/video_issue_$ISSUE.mp4 --meta build/issue_$ISSUE/youtube_meta.txt --thumbnail build/issue_$ISSUE/thumb.png --privacy public 2>&1 | tee upload_youtube.log
+          URL=$(grep -o 'https://youtu.be/[^ ]*' upload_youtube.log | head -1 || true)
+          if [ -z "$URL" ]; then echo "::error::The YouTube upload gave no URL; nothing was posted to Telegram"; exit 1; fi
+          echo "YouTube: $URL"
+          python3 post_telegram.py --json video_script.json --youtube "$URL" --thumb build/issue_$ISSUE/thumb.png
