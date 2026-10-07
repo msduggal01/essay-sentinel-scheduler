@@ -66,3 +66,5 @@ Ruled sheet (2), handwritten text (3), typewriter (4), strike-through (7), struc
   ones to the composer (RULES, OPTIONAL ELEMENTS) and checks them (`extra_errors`).
 - Essay: Reels only (DeskShort). The long video still renders with `render_video.py`; the library
   comes with its Remotion port, after a mockup the owner approves.
+
+The long video's YouTube thumbnail has its own rules: docs/THUMBNAILS.md (remotion/src/DeskThumb.tsx).

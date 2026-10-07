@@ -26,6 +26,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - uses: actions/setup-node@v4     # the YouTube thumbnail is a Remotion still
+        with:
+          node-version: "22"
       - name: Install ffmpeg, fonts and Python libraries
         run: |
           sudo apt-get update
@@ -43,6 +46,16 @@ jobs:
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
           ESSAY_VOICE_ID: ${{ secrets.ESSAY_VOICE_ID }}
         run: python3 render_video.py video_script.json
+      - name: YouTube thumbnail in the design system (as in essay_daily.yml; PIL one on failure)
+        continue-on-error: true
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if ! { bash ops/chrome_deps.sh && (cd remotion && npm ci --no-audit --no-fund --silent); }; then
+            echo "::warning::Remotion could not be set up; the YouTube thumbnail is render_video.py's PIL one today"
+            exit 0
+          fi
+          python3 ops/desk_thumb.py video_script.json
       - name: Upload to YouTube and post to Telegram
         env:
           YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
