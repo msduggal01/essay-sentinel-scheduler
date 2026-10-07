@@ -33,6 +33,35 @@ type T = (typeof THEMES)['gs'];
 const INK = '#1A1D22', MUTED = '#5B6270', RED = '#B8322A', GREEN = '#2F6B3A';
 // margin-note headings (catalogue element 15): one uniform pale box, only the headings coloured
 const NOTE_COLOURS: Record<string, string> = {'WHY IT SCORES': GREEN, ADD: '#1E3A5F', AVOID: RED, EXAMPLE: '#8A6300', 'CURRENT AFFAIRS': '#5E4A73'};
+const G_FILL = '#EFEFED', G_LINE = '#D5D7DB', G_TEXT = '#5F6670', G_STRUCK = '#8A9099';
+/** the tone: how much colour a slide carries. 'two' is the live look; 'current' the old one, kept reachable */
+let TN: any = {};
+const DEFAULT_TONE = 'two';
+const tone = (name: string, C: any) => {
+	const base = {bad: RED, good: GREEN, badFill: '#FBEDEB', goodFill: '#EEF6EF', noteFill: '#FDF6DC', noteBorder: '#EAD9A0', struck: '#6B6B6B',
+		note: (h: string) => NOTE_COLOURS[h] || C.accentDeep, gain: C.gain, gainText: '#1A1D22',
+		pill: (k: number) => ({background: k === 0 ? C.primary : k === 1 ? C.accent : C.tint, color: k === 0 ? '#fff' : k === 1 ? C.deep : C.primary, border: 'none'})};
+	const N = '#F4F4F2', NB = '#DADAD6';
+	// two-tone (owner's choice, 8 Oct 2026): the desk colour and its own light shade; light grey is
+	// the third colour, for what is wrong or struck out (traps, flat openings, mistakes)
+	if (name === 'two') return {...base, bad: G_TEXT, good: C.primary, badFill: G_FILL, goodFill: C.tint, noteFill: C.tint, noteBorder: C.support, struck: G_STRUCK,
+		note: () => C.primary, gain: C.primary, gainText: '#fff', pill: (k: number) => ({background: k === 0 ? C.primary : k === 1 ? C.tint : G_FILL, color: k === 0 ? '#fff' : C.primary, border: 'none'})};
+	if (name === 'accent') return {...base, bad: '#9B3B32', good: C.primary, badFill: N, goodFill: N, noteFill: N, noteBorder: NB, note: () => C.primary,
+		gain: C.primary, gainText: '#fff', pill: (k: number) => ({background: k === 0 ? C.primary : '#fff', color: k === 0 ? '#fff' : C.primary, border: `2px solid ${C.primary}`})};
+	if (name === 'mono') return {...base, bad: '#555', good: INK, badFill: '#fff', goodFill: '#fff', noteFill: '#fff', noteBorder: NB, struck: '#8A8A8A', note: () => INK,
+		gain: INK, gainText: '#fff', pill: () => ({background: '#fff', color: INK, border: `2px solid ${NB}`})};
+	return base;
+};
+const calmTheme = (name: string, C: any) => {
+	const N = '#F4F4F2', NB = '#DADAD6';
+	// two-tone: the desk colour and its own light shade, nothing else
+	if (name === 'two') return {...C, accent: C.tint, accentDeep: C.primary, hl: C.tint, gain: C.primary, pale: C.tint, paler: '#F7F7F6', soft: G_FILL, support: G_LINE, meterOn: C.primary, pagerOn: C.primary, swatchLine: G_LINE};
+	// one accent: neutral boxes, headings in the desk colour, the accent only on highlights and the cover's key words
+	if (name === 'accent') return {...C, accentDeep: C.primary, gain: C.primary, pale: N, paler: '#FAFAF8', soft: N, tint: '#ECECE8', support: NB};
+	// mono: ink and greys; the desk colour only in the band
+	if (name === 'mono') return {...C, accent: '#E9E9E9', accentDeep: INK, hl: '#E6E6E6', gain: INK, pale: '#fff', paler: '#fff', soft: '#fff', tint: '#F2F2F2', support: NB};
+	return C;
+};
 
 /** "*word*" bold in the accent's deep shade; "_word_" highlighted (elements 1 and 3) */
 const Rich: React.FC<{text: string; C: T}> = ({text, C}) => (
@@ -57,7 +86,7 @@ const Pills: React.FC<{C: T; items: string[]}> = ({C, items}) => (
 	<div style={{display: 'flex', gap: 14, flexWrap: 'wrap'}}>
 		{items.map((t, k) => (
 			<span key={k} style={{fontFamily: F, fontWeight: 700, fontSize: 26, padding: '8px 20px', borderRadius: 30,
-				background: k === 0 ? C.primary : k === 1 ? C.accent : C.tint, color: k === 0 ? '#fff' : k === 1 ? C.deep : C.primary}}>{t}</span>
+				...TN.pill(k)}}>{t}</span>
 		))}
 	</div>
 );
@@ -145,8 +174,8 @@ const Question: React.FC<{s: any; C: T}> = ({s, C}) => {
 				<div style={{marginTop: 26}}><Pills C={C} items={s.pills || []} /></div>
 			</Box>
 			{s.trap ? (
-				<Box C={C} rule={RED} fill="#FBEDEB" style={{marginTop: 34}}>
-					<Label C={C} color={RED}>The trap in this question</Label>
+				<Box C={C} rule={TN.bad} fill={TN.badFill} style={{marginTop: 34}}>
+					<Label C={C} color={TN.bad}>The trap in this question</Label>
 					<Body size={38} style={{marginTop: 10}}><Rich text={s.trap} C={C} /></Body>
 				</Box>
 			) : null}
@@ -161,22 +190,22 @@ const Answer: React.FC<{s: any; C: T}> = ({s, C}) => {
 		<div style={{...PAGE(60)}}>
 			<div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'baseline'}}>
 				<Label C={C}>{s.label}</Label>
-				{s.score ? <span style={{fontFamily: F, fontWeight: 700, fontSize: 44, color: RED}}>{s.score}</span> : null}
+				{s.score ? <span style={{fontFamily: F, fontWeight: 700, fontSize: 44, color: TN.bad}}>{s.score}</span> : null}
 			</div>
 			<div style={{fontFamily: HAND, wordSpacing: '0.14em', fontSize: s.fs || 38, lineHeight: 1.6, color: INK, marginTop: 16}}>
 				{(s.parts || []).map((p: any, k: number) => {
 					if (!p.h) return <span key={k}>{p.t}</span>;
 					n += 1; notes.push({h: p.h, t: p.note});
-					const sup = <sup style={{color: RED, fontWeight: 700, fontSize: '0.6em', marginLeft: 2}}>{n}</sup>;
+					const sup = <sup style={{color: TN.bad, fontWeight: 700, fontSize: '0.6em', marginLeft: 2}}>{n}</sup>;
 					return p.strike
-						? <span key={k}><span style={{textDecoration: `line-through ${RED} 4px`, color: '#6B6B6B'}}>{p.t}</span>{sup}</span>
+						? <span key={k}><span style={{textDecoration: `line-through ${TN.bad} 4px`, color: TN.struck}}>{p.t}</span>{sup}</span>
 						: <span key={k}><span style={{background: C.hl, padding: '0 3px'}}>{p.t}</span>{sup}</span>;
 				})}
 			</div>
-			<div style={{marginTop: 30, background: '#FDF6DC', border: '2px solid #EAD9A0', borderRadius: 6, padding: '22px 28px'}}>
+			<div style={{marginTop: 30, background: TN.noteFill, border: `2px solid ${TN.noteBorder}`, borderRadius: 6, padding: '22px 28px'}}>
 				{notes.map((x, k) => (
 					<div key={k} style={{fontFamily: F, fontSize: s.nfs || 30, lineHeight: 1.4, color: INK, marginTop: k ? 14 : 0}}>
-						<b style={{color: NOTE_COLOURS[x.h] || C.accentDeep}}>{k + 1} {x.h}.</b> {x.t}
+						<b style={{color: TN.note(x.h)}}>{k + 1} {x.h}.</b> {x.t}
 					</div>
 				))}
 			</div>
@@ -196,8 +225,8 @@ const MostWrite: React.FC<{s: any; C: T}> = ({s, C}) => (
 			</div>
 			{(s.pairs || []).map((p: any, k: number) => (
 				<div key={k} style={{display: 'flex', background: k % 2 ? C.soft : '#fff', borderTop: `2px solid ${C.support}`}}>
-					<div style={{flex: 1, padding: '22px 24px', fontFamily: F, fontSize: 32, lineHeight: 1.35, color: RED, textDecoration: `line-through ${RED} 3px`}}>{p.a}</div>
-					<div style={{flex: 1.15, padding: '22px 24px', fontFamily: F, fontWeight: 700, fontSize: 32, lineHeight: 1.35, color: GREEN}}>{p.b}</div>
+					<div style={{flex: 1, padding: '22px 24px', fontFamily: F, fontSize: 32, lineHeight: 1.35, color: TN.bad, textDecoration: `line-through ${TN.bad} 3px`}}>{p.a}</div>
+					<div style={{flex: 1.15, padding: '22px 24px', fontFamily: F, fontWeight: 700, fontSize: 32, lineHeight: 1.35, color: TN.good}}>{p.b}</div>
 				</div>
 			))}
 		</div>
@@ -214,7 +243,7 @@ const Ladder: React.FC<{s: any; C: T}> = ({s, C}) => {
 			<H C={C}>{s.title}</H>
 			<div style={{marginTop: 26, display: 'flex', flexDirection: 'column-reverse', gap: 14}}>
 				<div style={{display: 'flex', alignItems: 'center', gap: 22}}>
-					<span style={{width: 130, textAlign: 'center', fontFamily: F, fontWeight: 700, fontSize: 48, color: RED}}>{s.before}</span>
+					<span style={{width: 130, textAlign: 'center', fontFamily: F, fontWeight: 700, fontSize: 48, color: TN.bad}}>{s.before}</span>
 					<Body size={30} color={MUTED}>{s.startNote || 'The answer as written'}</Body>
 				</div>
 				{rows.map((r, k) => {
@@ -224,7 +253,7 @@ const Ladder: React.FC<{s: any; C: T}> = ({s, C}) => {
 							<div style={{width: 130, flexShrink: 0, background: k === rows.length - 1 ? C.accent : C.primary, color: k === rows.length - 1 ? C.deep : '#fff',
 								borderRadius: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'}}>
 								<span style={{fontFamily: F, fontWeight: 700, fontSize: 44}}>{m}</span>
-								<span style={{fontFamily: F, fontWeight: 700, fontSize: 22, background: C.gain, color: '#1A1D22', borderRadius: 12, padding: '0 10px', marginBottom: 6}}>+{r.gain}</span>
+								<span style={{fontFamily: F, fontWeight: 700, fontSize: 22, background: TN.gain, color: TN.gainText, borderRadius: 12, padding: '0 10px', marginBottom: 6}}>+{r.gain}</span>
 							</div>
 							<Box C={C} fill={C.soft} style={{flex: 1, padding: '16px 22px'}}>
 								<div style={{fontFamily: F, fontWeight: 700, fontSize: 32, color: C.primary}}>{r.head}</div>
@@ -254,7 +283,7 @@ const Budget: React.FC<{s: any; C: T}> = ({s, C}) => {
 			<div style={{marginTop: 30}}>
 				{seg.map((g, k) => (
 					<div key={k} style={{display: 'flex', gap: 20, alignItems: 'flex-start', marginTop: 20}}>
-						<span style={{width: 34, height: 34, borderRadius: 6, background: fills[k % fills.length], flexShrink: 0, marginTop: 6}} />
+						<span style={{width: 34, height: 34, borderRadius: 6, background: fills[k % fills.length], flexShrink: 0, marginTop: 6, boxSizing: 'border-box', border: C.swatchLine ? `2px solid ${C.swatchLine}` : undefined}} />
 						<div>
 							<div style={{fontFamily: F, fontWeight: 700, fontSize: 34, color: C.primary}}>{g.label} <span style={{color: MUTED, fontWeight: 400}}>· {g.n} words</span></div>
 							{g.body ? <div style={{fontFamily: F, fontSize: 28, lineHeight: 1.35, color: MUTED}}>{g.body}</div> : null}
@@ -322,15 +351,15 @@ const Opening: React.FC<{s: any; C: T}> = ({s, C}) => (
 	<div style={{...PAGE(72)}}>
 		<Label C={C}>{s.label || 'The opening, rewritten'}</Label>
 		<H C={C}>{s.title}</H>
-		<Box C={C} rule={RED} fill="#FBEDEB" style={{marginTop: 30}}>
-			<Label C={C} color={RED}>The flat opening</Label>
-			<Body size={40} color="#6B6B6B" style={{marginTop: 10, fontFamily: HAND, wordSpacing: '0.14em', textDecoration: `line-through ${RED} 3px`}}>{s.flat}</Body>
-			{s.why ? <Body size={28} color={RED} style={{marginTop: 12, fontStyle: 'italic'}}>{s.why}</Body> : null}
+		<Box C={C} rule={TN.bad} fill={TN.badFill} style={{marginTop: 30}}>
+			<Label C={C} color={TN.bad}>The flat opening</Label>
+			<Body size={40} color={TN.struck} style={{marginTop: 10, fontFamily: HAND, wordSpacing: '0.14em', textDecoration: `line-through ${TN.bad} 3px`}}>{s.flat}</Body>
+			{s.why ? <Body size={28} color={TN.bad} style={{marginTop: 12, fontStyle: 'italic'}}>{s.why}</Body> : null}
 		</Box>
-		<Box C={C} rule={GREEN} fill="#EEF6EF" style={{marginTop: 26}}>
-			<Label C={C} color={GREEN}>The working opening</Label>
+		<Box C={C} rule={TN.good} fill={TN.goodFill} style={{marginTop: 26}}>
+			<Label C={C} color={TN.good}>The working opening</Label>
 			<Body size={42} style={{marginTop: 10, fontFamily: HAND, wordSpacing: '0.14em'}}><Rich text={s.working} C={C} /></Body>
-			{s.works ? <Body size={28} color={GREEN} style={{marginTop: 12, fontStyle: 'italic'}}>{s.works}</Body> : null}
+			{s.works ? <Body size={28} color={TN.good} style={{marginTop: 12, fontStyle: 'italic'}}>{s.works}</Body> : null}
 		</Box>
 	</div>
 );
@@ -356,15 +385,15 @@ const Anchors: React.FC<{s: any; C: T}> = ({s, C}) => (
 /** elements 25 and 28: the common mistake (red) with the difficulty and probability meters */
 const Mistake: React.FC<{s: any; C: T}> = ({s, C}) => (
 	<div style={{...PAGE(72)}}>
-		<Box C={C} rule={RED} fill="#FBEDEB">
-			<Label C={C} color={RED}>Common mistake</Label>
+		<Box C={C} rule={TN.bad} fill={TN.badFill}>
+			<Label C={C} color={TN.bad}>Common mistake</Label>
 			<div style={{fontFamily: F, fontWeight: 700, fontSize: 48, lineHeight: 1.2, color: INK, marginTop: 12}}>{s.title}</div>
 			{(s.paras || []).map((p: string, k: number) => <Body key={k} size={36} style={{marginTop: 18}}><Rich text={p} C={C} /></Body>)}
 		</Box>
 		{(s.meters || []).map((m: any, k: number) => (
 			<div key={k} style={{marginTop: k ? 26 : 50, display: 'flex', gap: 24, alignItems: 'center'}}>
 				<div style={{width: 260, flexShrink: 0}}><Label C={C}>{m.k}</Label></div>
-				<div style={{display: 'flex', gap: 12}}>{[0, 1, 2, 3, 4].map((d) => <span key={d} style={{width: 34, height: 34, borderRadius: 17, background: d < m.v ? C.accent : C.tint, border: `2px solid ${C.support}`}} />)}</div>
+				<div style={{display: 'flex', gap: 12}}>{[0, 1, 2, 3, 4].map((d) => <span key={d} style={{width: 34, height: 34, borderRadius: 17, background: d < m.v ? (C.meterOn || C.accent) : C.tint, border: `2px solid ${C.support}`}} />)}</div>
 				<Body size={28} color={MUTED}>{m.why}</Body>
 			</div>
 		))}
@@ -430,7 +459,7 @@ const Mcq: React.FC<{s: any; C: T; square?: boolean}> = ({s, C, square}) => (
 			{(s.options || []).map((o: string, k: number) => {
 				const right = s.answer === k;
 				return <div key={k} style={{borderRadius: 8, padding: '12px 18px', fontFamily: F, fontSize: 28, fontWeight: right ? 700 : 400,
-					color: right ? '#1A1D22' : INK, background: right ? C.gain : C.soft, border: `3px solid ${right ? C.gain : C.support}`}}>({'abcd'[k]}) {o}</div>;
+					color: right ? TN.gainText : INK, background: right ? TN.gain : C.soft, border: `3px solid ${right ? TN.gain : C.support}`}}>({'abcd'[k]}) {o}</div>;
 			})}
 		</div>
 		{s.explanation ? <Box C={C} rule={C.accent} style={{marginTop: 22, padding: '20px 24px'}}><Body size={28}>{s.explanation}</Body></Box> : null}
@@ -473,9 +502,10 @@ const KINDS: Record<string, React.FC<{s: any; C: T; square?: boolean}>> = {
 	card: Card, lens: Lens, opening: Opening, anchors: Anchors, mistake: Mistake, checklist: Checklist, glossary: Glossary, mcq: Mcq, practice: Practice, picture: Picture,
 };
 
-export const DeskCarousel: React.FC<{desk: keyof typeof THEMES; i: number; n: number; slide: any; issue?: string; date?: string; square?: boolean; handle?: string}> =
-	({desk, i, n, slide, issue, date, square, handle}) => {
-	const C = THEMES[desk] || THEMES.gs;
+export const DeskCarousel: React.FC<{desk: keyof typeof THEMES; i: number; n: number; slide: any; issue?: string; date?: string; square?: boolean; handle?: string; tone?: string}> =
+	({desk, i, n, slide, issue, date, square, handle, tone: tn}) => {
+	const C = calmTheme(tn || DEFAULT_TONE, THEMES[desk] || THEMES.gs);
+	TN = tone(tn || DEFAULT_TONE, C);
 	F = desk === 'umbrella' ? POPPINS : ARIAL;
 	const K = KINDS[slide.kind] || Anchors;
 	const Hh = square ? 1080 : 1350;
@@ -497,7 +527,7 @@ export const DeskCarousel: React.FC<{desk: keyof typeof THEMES; i: number; n: nu
 				{n > 1 ? (
 					<div style={{display: 'flex', gap: 10, alignItems: 'center'}}>
 						{i === 0 ? <span style={{fontFamily: F, fontWeight: 700, fontSize: 24, letterSpacing: 2, color: C.accentDeep, marginRight: 14}}>SWIPE</span> : null}
-						{Array.from({length: n}, (_, k) => <span key={k} style={{width: k === i ? 36 : 12, height: 12, borderRadius: 6, background: k === i ? C.accent : dark ? C.motif : C.support}} />)}
+						{Array.from({length: n}, (_, k) => <span key={k} style={{width: k === i ? 36 : 12, height: 12, borderRadius: 6, background: k === i ? (dark ? C.accent : C.pagerOn || C.accent) : dark ? C.motif : C.support}} />)}
 					</div>
 				) : null}
 			</div>
