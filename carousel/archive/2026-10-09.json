@@ -1,0 +1,38 @@
+{
+ "desk": "essay",
+ "date": "2026-10-09",
+ "facts": [
+  {
+   "kind": "essay",
+   "topic": "A mind certain of everything has stopped asking the one question that matters.",
+   "decode": "Certainty halts inquiry; honest doubt is what keeps a question open.",
+   "hub": "Doubt and scientific temper",
+   "items": [
+    {
+     "head": "Philosophical",
+     "text": "Socrates and the examined life"
+    },
+    {
+     "head": "Scientific",
+     "text": "doubt as method, not mood"
+    },
+    {
+     "head": "Psychological",
+     "text": "confidence versus competence"
+    },
+    {
+     "head": "Technological",
+     "text": "AI certainty without doubt"
+    },
+    {
+     "head": "Political",
+     "text": "institutions built on doubt"
+    },
+    {
+     "head": "Ethical",
+     "text": "humility in judging others"
+    }
+   ]
+  }
+ ]
+}
