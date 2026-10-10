@@ -1,0 +1,160 @@
+{
+ "desk": "essay",
+ "date": "2026-10-10",
+ "facts": [
+  {
+   "kind": "essay",
+   "topic": "The algorithm sets the route, but it is the rider who answers for the rain.",
+   "decode": "Platforms hold control, riders hold consequence. Who should share the risk?",
+   "hub": "Platform labour and shared risk",
+   "items": [
+    {
+     "head": "Economic",
+     "text": "scale and promise of gig work"
+    },
+    {
+     "head": "Social",
+     "text": "dignity without an employer"
+    },
+    {
+     "head": "Legal",
+     "text": "the Code and the 2026 Rules"
+    },
+    {
+     "head": "Technological",
+     "text": "the algorithm as unseen boss"
+    },
+    {
+     "head": "Ethical",
+     "text": "who owns the risk"
+    }
+   ]
+  }
+ ],
+ "carousel": {
+  "desk": "essay",
+  "format": "A",
+  "issue": "084",
+  "date": "10 October 2026",
+  "square": false,
+  "slides": [
+   {
+    "kind": "cover",
+    "kicker": "ESSAY OF THE DAY",
+    "headline": "The algorithm sets the route, *but it is the rider who answers for the rain.*",
+    "size": 74,
+    "pills": [
+     "ESSAY PAPER",
+     "125 MARKS",
+     "1,000 TO 1,200 WORDS"
+    ],
+    "takeaway": "Platforms hold control, riders hold consequence. Who should share the risk?"
+   },
+   {
+    "kind": "pipeline",
+    "label": "The decode",
+    "title": "What it says, and what it asks",
+    "steps": [
+     {
+      "k": "WHAT IT SAYS",
+      "head": "An essay about gig work and app based delivery.",
+      "body": "Algorithm equals control"
+     },
+     {
+      "k": "WHAT IT MEANS",
+      "head": "Platforms hold control, riders hold consequence.",
+      "body": "Rider equals exposed risk"
+     },
+     {
+      "k": "WHAT IT ASKS",
+      "head": "Who should share the risk?"
+     },
+     {
+      "k": "YOUR THESIS",
+      "head": "Platform labour and shared risk"
+     }
+    ],
+    "optional": true
+   },
+   {
+    "kind": "lens",
+    "label": "Hub and spokes",
+    "title": "Five lenses to sweep, clockwise",
+    "hub": "Platform labour and shared risk",
+    "lenses": [
+     {
+      "title": "Economic",
+      "sub": "scale and promise of gig work"
+     },
+     {
+      "title": "Social",
+      "sub": "dignity without an employer"
+     },
+     {
+      "title": "Legal",
+      "sub": "the Code and the 2026 Rules"
+     },
+     {
+      "title": "Technological",
+      "sub": "the algorithm as unseen boss"
+     },
+     {
+      "title": "Ethical",
+      "sub": "who owns the risk"
+     }
+    ],
+    "optional": true
+   },
+   {
+    "kind": "opening",
+    "title": "Open, a scene not a definition",
+    "flat": "Gig work is growing fast and gives people jobs. It should be regulated.",
+    "why": "Restates topic, no tension, no thesis.",
+    "working": "A rider checks the sky, the app clock keeps running. The rain is his problem, not the platform's. Tracked to the metre, protected by nothing.",
+    "optional": true
+   },
+   {
+    "kind": "budget",
+    "label": "Word budget",
+    "title": "Where the 1,150 words go",
+    "segments": [
+     {
+      "label": "Opening scene",
+      "n": 120
+     },
+     {
+      "label": "Decode and thesis",
+      "n": 130
+     },
+     {
+      "label": "Five lenses",
+      "n": 600
+     },
+     {
+      "label": "Counter-view, answered",
+      "n": 150
+     },
+     {
+      "label": "Way forward",
+      "n": 100
+     },
+     {
+      "label": "Closing image",
+      "n": 50
+     }
+    ],
+    "optional": true
+   },
+   {
+    "kind": "practice",
+    "title": "Write the first page *tonight*",
+    "lines": [
+     "The opening and one lens are enough to start.",
+     "Get it evaluated at *evaluate.upscdesk.com*, five free evaluations every month.",
+     "The full brief goes to subscribers. Subscribe from the link on our Telegram channel, *t.me/upscdesk_essay*."
+    ],
+    "pill": "SAVE THIS TOPIC"
+   }
+  ]
+ }
+}
