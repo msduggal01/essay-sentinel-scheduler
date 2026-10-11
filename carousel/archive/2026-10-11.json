@@ -1,0 +1,38 @@
+{
+ "desk": "essay",
+ "date": "2026-10-11",
+ "facts": [
+  {
+   "kind": "essay",
+   "topic": "The photograph outlives the moment it could not hold.",
+   "decode": "The record survives, but never held the moment it claims to keep.",
+   "hub": "Change and impermanence",
+   "items": [
+    {
+     "head": "Psychological",
+     "text": "the pull to document, not live"
+    },
+    {
+     "head": "Technological",
+     "text": "screens replacing experience"
+    },
+    {
+     "head": "Philosophical",
+     "text": "flux and impermanence"
+    },
+    {
+     "head": "Cultural",
+     "text": "memory kept alive by practice"
+    },
+    {
+     "head": "Ecological",
+     "text": "loss outrunning the record"
+    },
+    {
+     "head": "Ethical",
+     "text": "duty we owe the past"
+    }
+   ]
+  }
+ ]
+}
