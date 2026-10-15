@@ -83,6 +83,14 @@ def words(t):
     return [w for w in str(t).split() if w.strip()]
 
 
+GENERIC = {"subjects", "subject", "questions", "question", "lenses", "lens", "dimensions", "steps", "three", "four", "five",
+           "today", "week", "weekly", "daily", "prelims", "mains", "upsc", "news", "current", "affairs", "with", "from", "that", "this"}
+
+
+def norm(t):
+    return " ".join(re.findall(r"[a-z0-9']+", str(t).lower().replace("’", "'")))
+
+
 def nice_date(t):
     import datetime
     t = str(t or "").strip()
@@ -233,6 +241,8 @@ def gs_facts(d, video):
                 if sec and sec not in secs: secs.append(sec)
         f["sections"] = secs
         f["stems"] = [(s.get("content") or {}).get("stem", "") for s in slides if s.get("layout") == "prelims_question"]
+        f["statements"] = [st.get("text", "") for s in slides if s.get("layout") == "prelims_question"
+                           for st in ((s.get("content") or {}).get("statements") or []) if isinstance(st, dict)]
         f["pill"] = "Prelims"
     else:
         qc = _content(d, "question_card")
@@ -456,16 +466,26 @@ def write(fm, desk, ctype, f, d, use_llm):
         elif desk == "gs":
             secs = f["sections"][:4]
             steps = [{"label": s.title() if len(s) > 4 else s} for s in secs]
-            fallback = {"hook": f"Ten Questions, {len(steps)} Subjects", "accent": f"{len(steps)} Subjects"}
+            lead = short(f["cold"].get("headline", ""), 3) or "Ten Questions"
+            fallback = {"hook": f"{lead}, {len(steps)} Subjects", "accent": f"{len(steps)} Subjects"}
             what = f"The steps are the subjects of the week's questions: {secs}. The week's headline: {f['cold'].get('headline', '')}."
         else:
             steps = [{"label": x} for x in f["dimensions"]]
             fallback = {"hook": f"{len(steps)} Dimensions, One Thesis", "accent": "One Thesis"}
             what = f"The steps are the essay's dimensions, in order: {f['dimensions']}. The topic: {f.get('topic')}."
+        subject_text = {"sociology": " ".join(b["event"] for b in f.get("blocks", [])), "gs": str(f.get("cold", {}).get("headline", "")),
+                        "essay": str(f.get("topic", ""))}[desk]
         fallback = {"hook": fallback["hook"].replace("3 ", "Three ").replace("4 ", "Four "), "accent": fallback["accent"].replace("3 ", "Three ").replace("4 ", "Four ")}
+        topic_words = {w for w in re.findall(r"[a-z]{4,}", what.split("The steps are")[-1].split(":", 1)[-1].lower() + " " + subject_text.lower())} - GENERIC
+        def chk(c):
+            e = common_errors(c, ["hook", "accent"], src)
+            hw = set(re.findall(r"[a-z]{4,}", str(c.get("hook", "")).lower()))
+            if not (hw & topic_words): e.append("the hook must name the day's own subject (a story, a place, a scheme or the topic), not only the count")
+            if hw & {"steps", "step", "staircase", "ladder"}: e.append("never describe the picture (steps, ladder)")
+            return e
         c = ask(sysmsg, "This thumbnail shows a staircase of steps rising left to right. " + what + " Write {\"hook\", \"accent\"}: "
-                "at most six words that name the day's subject and the number of steps (e.g. \"Caste Census, Four Lenses\"); the accent "
-                "is one to three words copied exactly from the hook.", lambda c: common_errors(c, ["hook", "accent"], src), use_llm) or fallback
+                "at most six words that name the day's own subject and the number of steps (e.g. \"Caste Census, Four Lenses\", "
+                "\"Nobel Week, Four Subjects\"); the accent is one to three words copied exactly from the hook.", chk, use_llm) or fallback
         return {"steps": steps, "hook": c["hook"], "accent": c["accent"]}
     if fm == "F4":
         if desk == "sociology":
@@ -473,14 +493,17 @@ def write(fm, desk, ctype, f, d, use_llm):
             mat = {"event": lead["event"], "news_facts": lead["bullets"], "narration": str(lead.get("narration", ""))[:1500],
                    "thinker": (lead.get("thinker") or {}).get("name", ""), "concept": (lead.get("thinker") or {}).get("idea", "")}
         elif desk == "gs":
-            mat = {"headline": f["cold"].get("headline"), "sub": f["cold"].get("sub"), "stems": f.get("stems"), "question": f.get("question")}
+            mat = {"headline": f["cold"].get("headline"), "stems": f.get("stems"), "statements": f.get("statements"), "question": f.get("question")}
         else:
             mat = {"topic": f.get("topic")}
+        news = flat(mat if desk != "gs" else [f.get("stems"), f.get("statements"), f.get("question")])
         def chk(c):
             e = common_errors(c, ["hook", "accent", "kicker", "number", "label", "caption"], src)
             num = str(c.get("number") or "")
             if not re.search(r"\d", num) or len(num) > 12: e.append("number: one real figure from the material, at most 12 characters")
             elif re.fullmatch(r"(19|20)\d\d", num.strip()): e.append("number: not a year")
+            elif re.sub(r"\D", "", num) not in re.sub(r"[,\s]", "", news): e.append("number: a figure from the news facts themselves")
+            elif desk == "gs" and re.sub(r"\D", "", num) == "10": e.append("number: a figure from the news, never the number of questions")
             elif num.strip() not in str(c.get("hook", "")) and re.sub(r"\D", "", num) not in re.sub(r"\D", "", str(c.get("hook", ""))):
                 e.append("the hook must carry the number")
             if len(words(c.get("label", ""))) > 3: e.append("label: at most three words")
@@ -491,7 +514,7 @@ def write(fm, desk, ctype, f, d, use_llm):
                 "{\"number\", \"label\", \"caption\", \"kicker\", \"hook\", \"accent\"}: number is the figure exactly as the material "
                 "gives it (with its unit, e.g. \"50%\", \"59 GW\", \"4.2\"), never a year; label names it (at most three words); caption "
                 "says what it is (at most eight words); kicker is the topic (at most five words); the hook (at most six words) asks "
-                "or states something about the number and contains it; the accent is copied exactly from the hook and contains the "
+                "or states something plain about the number and contains it, never a quiz or a dare to the viewer; the accent is copied exactly from the hook and contains the "
                 "number.\n\n" + json.dumps(mat, ensure_ascii=False), chk, use_llm)
         if not c: return None
         num = c["number"].strip()
@@ -536,14 +559,14 @@ def write(fm, desk, ctype, f, d, use_llm):
                 e = common_errors(c, ["big", "accent"], src)
                 b = str(c.get("big") or "")
                 if not b or len(words(b)) > 10: e.append("big: the topic's sharpest clause, at most ten words")
-                elif not all(re.sub(r"[^a-z']", "", w.lower()) in topic.lower() for w in words(b) if re.sub(r"[^a-z']", "", w.lower())):
-                    e.append("big: use only the topic's own words")
+                elif norm(b) not in norm(topic):
+                    e.append("big: one unbroken stretch of the topic's own words, nothing dropped from its middle")
                 ac = str(c.get("accent") or "")
                 if not ac or ac.lower() not in b.lower() or len(words(ac)) > 2: e.append("accent: one or two words copied exactly from big")
                 return e
-            c = ask(sysmsg, "This thumbnail shows the essay topic in large type. Write {\"big\", \"accent\"}: big is the topic's sharpest "
-                    "clause in its own words (at most ten words, sentence case, ending with a full stop or question mark); accent is "
-                    "the one or two words that carry the tension, copied exactly.\n\nThe topic: " + topic, chk, use_llm)
+            c = ask(sysmsg, "This thumbnail shows the essay topic in large type. Write {\"big\", \"accent\"}: big is the whole topic, or "
+                    "one unbroken clause of it copied word for word (at most ten words; you may add a closing full stop); accent is "
+                    "the one or two words that carry the tension, copied exactly from big.\n\nThe topic: " + topic, chk, use_llm)
             if not c:
                 if len(words(topic)) > 20: return None
                 c = {"big": topic, "accent": ""}          # the whole topic, fitted to its box

@@ -346,8 +346,8 @@ const F5: React.FC<{p: P; C: any}> = ({p, C}) => (
 const F6: React.FC<{p: P; C: any}> = ({p, C}) => (
 	<AbsoluteFill style={{background: `radial-gradient(circle at 80% 30%, ${C.soft} 0%, ${C.deep} 40%, ${C.night} 100%)`}}>
 		<Header p={p} C={C} />
-		{/* one column, x 48 to 1232, y 140 to 590 */}
-		<div style={{position: 'absolute', left: 48, top: 140}}>
+		{/* one column, x 48 to 1232, centred between y 110 and 600 */}
+		<div style={{position: 'absolute', left: 48, top: 110, height: 490, display: 'flex', flexDirection: 'column', justifyContent: 'center'}}>
 			{p.kicker ? <Fit w={1184} h={44}><div data-fit style={{fontFamily: COND, fontWeight: 700, fontSize: fs(30), lineHeight: 1.2, letterSpacing: 3, color: C.acc2, textTransform: 'uppercase', whiteSpace: 'nowrap'}}>{p.kicker}</div></Fit> : null}
 			<div style={{height: p.kicker ? 10 : 0}} />
 			<Fit w={1184} h={p.kicker ? 396 : 450}>
