@@ -1,0 +1,31 @@
+# Manual: set a published video's thumbnail to an image already committed in the repo
+# (thumbs/manual/<video_id>.jpg), e.g. a video that went out before the new designs were live.
+name: Set a video's thumbnail from a file
+on:
+  workflow_dispatch:
+    inputs:
+      video_id:
+        description: "The YouTube video id"
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  thumb:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -q -r requirements.txt
+      - name: Set it on YouTube
+        env:
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+        run: |
+          F="thumbs/manual/${{ inputs.video_id }}.jpg"
+          test -s "$F" || { echo "::error::no $F in the repo"; exit 1; }
+          python3 set_thumbnail.py "${{ inputs.video_id }}" "$F"
