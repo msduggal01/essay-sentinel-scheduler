@@ -1,0 +1,34 @@
+{
+ "desk": "essay",
+ "date": "2026-10-15",
+ "facts": [
+  {
+   "kind": "essay",
+   "topic": "The file holding the warning is thicker than the file holding the repair.",
+   "decode": "The gap between knowing a risk and acting on it is where courage is tested.",
+   "hub": "Knowing versus doing",
+   "items": [
+    {
+     "head": "Political",
+     "text": "file culture, deliberation as alibi"
+    },
+    {
+     "head": "Ecological",
+     "text": "known risk left unrepaired"
+    },
+    {
+     "head": "Psychological",
+     "text": "fear of blame, not harm"
+    },
+    {
+     "head": "Ethical",
+     "text": "courage versus recklessness"
+    },
+    {
+     "head": "Scientific",
+     "text": "calculated risk, costly delay"
+    }
+   ]
+  }
+ ]
+}
