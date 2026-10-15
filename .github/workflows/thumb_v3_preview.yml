@@ -1,0 +1,73 @@
+# Preview the desk's thumbnails v3 for stored scripts (earlier runs' script artifacts), as the daily
+# run would make them, the rotation chained across them (ops/thumb_v3_preview.py). Read-only: it posts
+# nothing, sets nothing on YouTube and keeps no rotation state; the result is the artifact
+# thumb-v3-preview (the PNGs, their props and plan.json).
+name: Thumbnails v3 Preview
+on:
+  workflow_dispatch:
+    inputs:
+      items:
+        description: "script artifact ids, oldest first (GS: id:prelims or id:mains)"
+        type: string
+permissions:
+  contents: read
+  actions: read
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DESK: essay
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: System packages
+        run: bash ops/chrome_deps.sh && pip install -q -r requirements.txt
+      - name: The scripts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p prev/scripts; ARGS=""
+          for IT in ${{ inputs.items }}; do
+            AID=${IT%%:*}; KIND=""; [ "$AID" != "$IT" ] && KIND=${IT#*:}
+            mkdir -p prev/scripts/$AID
+            [ -s prev/scripts/$AID/a.zip ] || gh api repos/$GITHUB_REPOSITORY/actions/artifacts/$AID/zip > prev/scripts/$AID/a.zip
+            unzip -o -q prev/scripts/$AID/a.zip -d prev/scripts/$AID
+            F=$(ls prev/scripts/$AID/${KIND:+${KIND}_}*script*.json | head -1)
+            ARGS="$ARGS $F${KIND:+:$KIND}"
+          done
+          echo "ARGS=$ARGS" >> $GITHUB_ENV; echo "scripts:$ARGS"
+      - name: Props, with the real hook calls and the rotation
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python3 ops/thumb_v3_preview.py $DESK prev/out $ARGS
+      - name: Render
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p remotion/public
+          for P in $(python3 -c "import json;[print(p['plate']) for p in json.load(open('prev/out/plan.json')) if p.get('plate')]" | sort -u); do
+            [ -s remotion/public/$P ] || gh release download art-library -D remotion/public -p "$P" --clobber < /dev/null 2>/dev/null || echo "no plate $P"
+          done
+          gh release download thinker-portraits -D remotion/public/portraits --clobber < /dev/null 2>/dev/null || true
+          cd remotion && npm ci --no-audit --no-fund --silent
+          python3 - <<'PY'
+          import json, subprocess
+          for p in json.load(open('../prev/out/plan.json')):
+              out = f"../prev/out/{p['n']}_{p['issue']}{('_' + p['kind']) if p['kind'] else ''}_{p['format']}.png"
+              subprocess.run(["npx", "remotion", "still", "src/index.ts", p["composition"], out, f"--props=../prev/out/{p['n']}_props.json", "--log=error"], check=True)
+              print("rendered", out)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: thumb-v3-preview
+          path: |
+            prev/out/*.png
+            prev/out/*_props.json
+            prev/out/plan.json
+          retention-days: 14
