@@ -1,6 +1,7 @@
 import React, {useEffect, useState} from 'react';
 import {AbsoluteFill, Img, continueRender, delayRender, staticFile} from 'remotion';
 import {loadFont} from '@remotion/google-fonts/BarlowCondensed';
+import {DeskThumbV3} from './DeskThumbV3';
 
 /* The UPSC Desk YouTube thumbnail, 1280 x 720: the approved design system (DeskThumbV2, the
    owner's mockups) with the Essay desk's claret and gold. One hook of at most six words, its
@@ -123,7 +124,18 @@ const HeaderH3: React.FC<{p: P}> = ({p}) => (
 		<span style={{alignSelf: 'flex-start', fontFamily: COND, fontWeight: 700, fontSize: 26, color: C.amberSoft, whiteSpace: 'nowrap'}}>Issue {p.issue} · {p.date}</span>
 	</div>
 );
-const HEADERS: Record<string, React.FC<{p: P}>> = {H0: HeaderH0, H1: HeaderH1, H2: HeaderH2, H3: HeaderH3};
+// HC compact (approved 15 Oct 2026, the Essay default since): the desk and the paper pill on one line,
+// issue and date top right only when the props carry a date. It ends near y 84.
+const HeaderHC: React.FC<{p: P}> = ({p}) => (
+	<>
+		<div style={{position: 'absolute', left: 48, top: 40, display: 'flex', alignItems: 'center', gap: 14}}>
+			<span style={{fontFamily: COND, fontWeight: 800, fontSize: 32, letterSpacing: 3, color: C.cream, lineHeight: 1}}>{C.desk}</span>
+			<span style={{fontFamily: COND, fontWeight: 800, fontSize: 27, letterSpacing: 2, background: C.amber, color: C.night, padding: '3px 12px', borderRadius: 6, lineHeight: 1.1}}>{String((p as any).pill || C.paper).toUpperCase()}</span>
+		</div>
+		{p.issue && p.date ? <span style={{position: 'absolute', right: 48, top: 44, fontFamily: COND, fontWeight: 700, fontSize: 26, color: C.amberSoft}}>Issue {p.issue} · {p.date}</span> : null}
+	</>
+);
+const HEADERS: Record<string, React.FC<{p: P}>> = {H0: HeaderH0, H1: HeaderH1, H2: HeaderH2, H3: HeaderH3, HC: HeaderHC};
 const Header: React.FC<{p: P}> = ({p}) => {
 	const H = HEADERS[p.header || 'H2'] || HeaderH2;
 	return <H p={p} />;
@@ -245,6 +257,8 @@ const T6: React.FC<{p: P}> = ({p}) => (
 
 const V: Record<string, React.FC<{p: P}>> = {T1, T2, T3, T4, T5, T6};
 export const DeskThumb: React.FC<P> = (p) => {
+	// the thumbnails v3 (F1..F7, approved 15 Oct 2026; ops/thumb_v3.py): drawn when the props carry `f`
+	if ((p as any).f) return <DeskThumbV3 {...(p as any)} />;
 	// the hooks are measured in the font itself, so nothing renders until it has loaded
 	const [handle] = useState(() => delayRender('the thumbnail font'));
 	const [ready, setReady] = useState(false);

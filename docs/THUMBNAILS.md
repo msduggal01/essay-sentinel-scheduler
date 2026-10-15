@@ -5,6 +5,49 @@ Approved 7 Oct 2026: the UPSC Desk thumbnail design system (the owner's mockups,
 that `render_video.py` drew. Titles still start "UPSC Essay:" (yt_meta.py); this changes only
 the picture.
 
+## Thumbnails v3 (approved 15 Oct 2026)
+
+The owner approved the compact header and the formats F1 to F7 of the UPSC Desk thumbnail
+playbook on 15 Oct 2026. They come first on every long video; the designs below stay as the
+fallback. The same two files are in all three desk repos: `ops/thumb_v3.py` (the choice and the
+words) and `remotion/src/DeskThumbV3.tsx` (the drawing), drawn through this repo's usual
+thumbnail composition whenever the props carry `f`. The backup of the earlier workflow is the
+branch `backup/thumbnails-v2-2026-10-15` and the tag `thumbnails-v2-backup-2026-10-15`.
+
+**Header HC.** One line top left: the desk name, then the paper in an accent pill. Issue and date
+top right on current-affairs videos only. It ends at y 84. The T1 to T6 fallback uses it too.
+
+| Id | Format | Filled from the script |
+|---|---|---|
+| F1 | Portrait + Verdict: the thinker (a portrait from release `thinker-portraits` when it has one, else the name, giant) and a question on the news | the lead event's thinker |
+| F2 | Versus: two names either side of a VS disc, the verdict in an accent band (Essay: four topic cards) | two thinkers; GS Mains `balance`; Essay `topics` |
+| F3 | Ladder: three or four steps rising left to right, on the desk's tint | three or more thinkers; GS Prelims sections; Essay dimensions |
+| F4 | Stakes Object: one real number on a card (a gauge for a share), an arrow | a figure in the material, never a year |
+| F5 | Proof: an answer sheet with the marks before and after | Sociology answer bridge "14 versus 19" of 20; GS Mains `band_shift` |
+| F6 | Quiet Statement: a concept or the essay topic in large type | the lead concept; the essay topic |
+| F7 | Strike-through: the old line crossed out over the new one | average vs top move; GS `word_swaps`; Essay "avoid ..." vs "Opening: ..." |
+
+**The choice** (`thumb_v3.make`):
+1. Content type: one small Claude call picks it from the desk's list (Sociology: current affairs,
+   topic, concept, thinkers, answer writing; Essay: topic, structure, answer writing; GS Prelims:
+   current affairs, geography and IR, laws; GS Mains: answer writing, laws, PYQ). Without a key
+   or after three bad replies, the desk's default.
+2. The content type's first choice of format, unless it was the previous video's; then its second;
+   neither when both were used in the last two videos; no format more than twice in five; F3 first
+   when the last five had no light surface. A format the day's script cannot fill is skipped.
+3. The words: one small Claude call per format, checked in code (at most six words, the accent
+   inside the hook, every number from the material, no dashes, emojis, "!", script, candidate or
+   topper), three tries; F3, F5, F6 and F7 have code-built fallbacks.
+4. No format fits: the T1 to T6 designs below, with header HC. That turn is logged as "T".
+
+**The rotation state** is one small JSON (`{"formats": [...], "issue": ...}`) uploaded by the
+daily run as the artifact `thumb-v3-<desk>` (GS: `thumb-v3-gs-prelims`, `thumb-v3-gs-mains`, 90
+days) and read back by `ops/thumb_v3_state.sh` for the next issue. Dry runs never upload it.
+`THUMB_V3=off` in the environment turns v3 off and the T1 to T6 designs draw every day.
+
+Try it by hand: `python3 ops/thumb_v3.py <desk> script.json [--video prelims] --format F5 --no-llm --out p.json`,
+then `npx remotion still src/index.ts DeskThumbV3 x.png --props=p.json` in `remotion/`.
+
 ## Where it is made
 
 | Piece | File |
