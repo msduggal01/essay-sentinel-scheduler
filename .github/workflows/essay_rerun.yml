@@ -50,11 +50,16 @@ jobs:
         continue-on-error: true
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           if ! { bash ops/chrome_deps.sh && (cd remotion && npm ci --no-audit --no-fund --silent); }; then
             echo "::warning::Remotion could not be set up; the YouTube thumbnail is render_video.py's PIL one today"
             exit 0
           fi
+          # the thumbnails v3 rotation (formats F1..F7, ops/thumb_v3.py): the desk's recent formats
+          ISSUE=$(python3 -c "import json;print(json.load(open('video_script.json'))['issue_no'])")
+          bash ops/thumb_v3_state.sh thumb-v3-essay $ISSUE $RUNNER_TEMP/thumb_v3_prev.json
+          export THUMB_V3_STATE=$RUNNER_TEMP/thumb_v3_prev.json
           python3 ops/desk_thumb.py video_script.json
       - name: Upload to YouTube and post to Telegram
         env:

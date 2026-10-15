@@ -27,6 +27,7 @@ import argparse, hashlib, json, os, re, shutil, subprocess, sys, tempfile, urlli
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
+sys.path.insert(0, os.path.join(ROOT, "ops"))
 import yt_meta   # noqa: E402  the real topic (thumbnail.topic, a heading that is not a label, the spoken line)
 
 MODEL = os.environ.get("THUMB_MODEL", "claude-sonnet-5")
@@ -198,6 +199,17 @@ def date_of(data):
 
 
 def props_for(data, use_llm=True, variant=None):
+    # the thumbnails v3 (approved 15 Oct 2026): a format F1..F7 for the day's content type and the
+    # desk's recent formats (ops/thumb_v3.py; rotation state in THUMB_V3_STATE, out to
+    # THUMB_V3_STATE_OUT); none fits, or it fails, and the T1..T6 layouts below draw the day
+    if not variant:
+        try:
+            import thumb_v3
+            p = thumb_v3.run("essay", data, "", None, use_llm)
+            if p:
+                return {**p, "_source": "thumb_v3"}
+        except Exception as ex:  # noqa: BLE001  v3 can cost the day its new format, never its thumbnail
+            warn(f"thumb_v3 failed ({str(ex)[:200]}); the T1..T6 layouts")
     w, src = words_for(data, use_llm)
     issue = str(data.get("issue_no", ""))
     v = variant or layout_for(issue, bool(w["word"]))
@@ -206,7 +218,7 @@ def props_for(data, use_llm=True, variant=None):
         os.makedirs(os.path.join(REMOTION, "public"), exist_ok=True)
         shutil.copyfile(PLATE_SRC, os.path.join(REMOTION, "public", PLATE))
         plate = PLATE
-    return {"desk": "essay", "header": "H2", "v": v, "hook": w["hook"], "accent": w["accent"], "thinker": w["word"],
+    return {"desk": "essay", "header": "HC", "v": v, "hook": w["hook"], "accent": w["accent"], "thinker": w["word"],
             "issue": issue, "date": date_of(data), "plate": plate, "_source": src}
 
 
@@ -255,7 +267,7 @@ def main():
             shutil.copyfile(out, keep)
         render(props, out)
         json.dump(props, open(os.path.splitext(out)[0] + "_props.json", "w"), indent=1, ensure_ascii=False)
-        print(f"desk_thumb: {props['v']} written to {out} ({os.path.getsize(out)} bytes)" + (f"; the PIL one kept as {keep}" if keep else ""))
+        print(f"desk_thumb: {props.get('f') or props.get('v')} written to {out} ({os.path.getsize(out)} bytes)" + (f"; the PIL one kept as {keep}" if keep else ""))
     except Exception as ex:  # noqa: BLE001  the PIL thumbnail stays
         warn(f"The Remotion thumbnail failed ({str(ex)[:300]}); the YouTube thumbnail is render_video.py's PIL one today")
     return 0
