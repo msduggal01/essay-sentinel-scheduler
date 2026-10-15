@@ -554,22 +554,19 @@ def write(fm, desk, ctype, f, d, use_llm):
                 c = {"line": f"seen today in {ev}", "accent": ev}
             return {"big": big[:1].lower() + big[1:] if not big[:2].isupper() else big, "sub": t["name"], "line": c["line"], "accent": c["accent"], "upper": False}
         if desk == "essay":
-            topic = f["topic"]
+            # the topic exactly as UPSC-style wording gives it, fitted to its box; a clause only when it is too long
+            topic = re.sub(r"\s+", " ", f["topic"]).strip()
+            if len(words(topic)) > 18:
+                return None
+            big = topic if topic[-1:] in ".?!" else topic + "."
             def chk(c):
-                e = common_errors(c, ["big", "accent"], src)
-                b = str(c.get("big") or "")
-                if not b or len(words(b)) > 10: e.append("big: the topic's sharpest clause, at most ten words")
-                elif norm(b) not in norm(topic):
-                    e.append("big: one unbroken stretch of the topic's own words, nothing dropped from its middle")
+                e = common_errors(c, ["accent"], src)
                 ac = str(c.get("accent") or "")
-                if not ac or ac.lower() not in b.lower() or len(words(ac)) > 2: e.append("accent: one or two words copied exactly from big")
+                if not ac or ac not in big or len(words(ac)) > 2: e.append("accent: one or two words copied exactly, same case, from the topic")
                 return e
-            c = ask(sysmsg, "This thumbnail shows the essay topic in large type. Write {\"big\", \"accent\"}: big is the whole topic, or "
-                    "one unbroken clause of it copied word for word (at most ten words; you may add a closing full stop); accent is "
-                    "the one or two words that carry the tension, copied exactly from big.\n\nThe topic: " + topic, chk, use_llm)
-            if not c:
-                if len(words(topic)) > 20: return None
-                c = {"big": topic, "accent": ""}          # the whole topic, fitted to its box
+            c = ask(sysmsg, "This thumbnail shows the essay topic in large type, exactly as written. Write {\"accent\"}: the one or two "
+                    "words of it that carry the tension, copied exactly with the same case.\n\nThe topic: " + big, chk, use_llm) or {"accent": ""}
+            c["big"] = big
             return {"kicker": " · ".join(x for x in ["Essay", f.get("theme", "")] if x), "big": c["big"], "accent": c["accent"], "upper": False}
         return None
     if fm == "F7":
