@@ -1,0 +1,38 @@
+{
+ "desk": "essay",
+ "date": "2026-10-16",
+ "facts": [
+  {
+   "kind": "essay",
+   "topic": "A mind that never forgets can still mistake its own invention for memory.",
+   "decode": "Not about forgetting. It is about false confidence mistaken for knowledge.",
+   "hub": "Technology and the modern self",
+   "items": [
+    {
+     "head": "Psychological",
+     "text": "why confidence feels like truth"
+    },
+    {
+     "head": "Technological",
+     "text": "AI predicts, does not verify"
+    },
+    {
+     "head": "Philosophical",
+     "text": "wisdom begins in doubt"
+    },
+    {
+     "head": "Historical",
+     "text": "confident error across time"
+    },
+    {
+     "head": "Ethical",
+     "text": "the duty to verify before asserting"
+    },
+    {
+     "head": "Educational",
+     "text": "degrees versus actual competence"
+    }
+   ]
+  }
+ ]
+}
