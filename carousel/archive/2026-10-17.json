@@ -1,0 +1,134 @@
+{
+ "desk": "essay",
+ "date": "2026-10-17",
+ "facts": [
+  {
+   "kind": "essay",
+   "topic": "The economy counts every rupee that changes hands, but not the hours that never do.",
+   "decode": "Markets price every transaction but never the hours of unpaid care that sustain them.",
+   "hub": "Unpaid work and its recognition",
+   "items": [
+    {
+     "head": "Economic",
+     "text": "the GDP blind spot"
+    },
+    {
+     "head": "Historical",
+     "text": "when home left the market"
+    },
+    {
+     "head": "Social",
+     "text": "gendered division of time"
+    },
+    {
+     "head": "Ethical",
+     "text": "dignity and equal opportunity"
+    },
+    {
+     "head": "Policy",
+     "text": "recognise, reduce, redistribute"
+    }
+   ]
+  }
+ ],
+ "carousel": {
+  "desk": "essay",
+  "format": "A",
+  "issue": "091",
+  "date": "17 October 2026",
+  "square": false,
+  "slides": [
+   {
+    "kind": "cover",
+    "kicker": "ESSAY OF THE DAY",
+    "headline": "The economy counts every rupee that changes hands, *but not the hours that never do.*",
+    "size": 0,
+    "pills": [
+     "ESSAY PAPER",
+     "125 MARKS",
+     "1,000 TO 1,200 WORDS"
+    ],
+    "takeaway": "Markets price every transaction but never the hours of unpaid care that sustain them."
+   },
+   {
+    "kind": "lens",
+    "label": "Hub and spokes",
+    "title": "Five lenses to sweep, clockwise",
+    "hub": "Unpaid work and its recognition",
+    "lenses": [
+     {
+      "title": "Economic",
+      "sub": "the GDP blind spot"
+     },
+     {
+      "title": "Historical",
+      "sub": "when home left the market"
+     },
+     {
+      "title": "Social",
+      "sub": "gendered division of time"
+     },
+     {
+      "title": "Ethical",
+      "sub": "dignity and equal opportunity"
+     },
+     {
+      "title": "Policy",
+      "sub": "recognise, reduce, redistribute"
+     }
+    ],
+    "optional": true
+   },
+   {
+    "kind": "opening",
+    "title": "Open on the data, not a definition",
+    "flat": "The economy is important for growth and money matters to everyone. Work should be valued.",
+    "why": "Restates topic, no tension, no thesis.",
+    "working": "Before a rupee moves, hours already have. Three hundred and five minutes, uncounted daily. A ledger that ignores time cannot balance.",
+    "optional": true
+   },
+   {
+    "kind": "budget",
+    "label": "Word budget",
+    "title": "Where the 1,150 words go",
+    "segments": [
+     {
+      "label": "Opening scene",
+      "n": 120
+     },
+     {
+      "label": "Decode and thesis",
+      "n": 130
+     },
+     {
+      "label": "Five lenses",
+      "n": 600
+     },
+     {
+      "label": "Counter-view, answered",
+      "n": 150
+     },
+     {
+      "label": "Way forward",
+      "n": 100
+     },
+     {
+      "label": "Closing image",
+      "n": 50
+     }
+    ],
+    "optional": true
+   },
+   {
+    "kind": "practice",
+    "title": "Write the first page *tonight*",
+    "lines": [
+     "The opening and one lens are enough to start.",
+     "Get it evaluated at *evaluate.upscdesk.com*, five free evaluations every month.",
+     "The full brief goes to subscribers. Subscribe from the link on our Telegram channel, *t.me/upscdesk_essay*."
+    ],
+    "pill": "SAVE THIS TOPIC"
+   }
+  ]
+ }
+}
