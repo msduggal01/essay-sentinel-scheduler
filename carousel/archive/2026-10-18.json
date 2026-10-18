@@ -1,0 +1,38 @@
+{
+ "desk": "essay",
+ "date": "2026-10-18",
+ "facts": [
+  {
+   "kind": "essay",
+   "topic": "A mind stocked with answers can still starve for a single good question.",
+   "decode": "Answers can be hoarded. Wisdom needs the habit of asking the next honest question.",
+   "hub": "Information, knowledge and inquiry",
+   "items": [
+    {
+     "head": "Philosophical",
+     "text": "Socratic doubt as wisdom's root"
+    },
+    {
+     "head": "Psychological",
+     "text": "cognitive offloading"
+    },
+    {
+     "head": "Educational",
+     "text": "exams reward recall"
+    },
+    {
+     "head": "Technological",
+     "text": "AI as tool, not oracle"
+    },
+    {
+     "head": "Economic",
+     "text": "the digital divide"
+    },
+    {
+     "head": "Civic",
+     "text": "freedom to question"
+    }
+   ]
+  }
+ ]
+}
