@@ -1,0 +1,38 @@
+{
+ "desk": "essay",
+ "date": "2026-10-20",
+ "facts": [
+  {
+   "kind": "essay",
+   "topic": "A ship that waits for a perfect wind never leaves the harbour it was built to leave.",
+   "decode": "A ship built for sea fails if never sailed. Waiting is also a choice.",
+   "hub": "Courage versus calculated risk",
+   "items": [
+    {
+     "head": "Philosophical",
+     "text": "courage between two extremes"
+    },
+    {
+     "head": "Scientific",
+     "text": "calculated risk"
+    },
+    {
+     "head": "Economic",
+     "text": "risk versus caution"
+    },
+    {
+     "head": "Psychological",
+     "text": "cost of indecision"
+    },
+    {
+     "head": "Social",
+     "text": "readiness, not haste"
+    },
+    {
+     "head": "Ethical",
+     "text": "acting against the crowd"
+    }
+   ]
+  }
+ ]
+}
