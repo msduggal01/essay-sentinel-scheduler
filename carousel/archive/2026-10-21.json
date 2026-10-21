@@ -1,0 +1,168 @@
+{
+ "desk": "essay",
+ "date": "2026-10-21",
+ "facts": [
+  {
+   "kind": "essay",
+   "topic": "A phone that never runs out of charge has made it easier to forget that the mind still does.",
+   "decode": "Machines recharge fully. Minds do not. What does endless connection cost attention?",
+   "hub": "Endurance, machine versus human",
+   "items": [
+    {
+     "head": "Psychological",
+     "text": "attention and cognitive offloading"
+    },
+    {
+     "head": "Social",
+     "text": "the self performed for an audience"
+    },
+    {
+     "head": "Technological",
+     "text": "design behind the feed"
+    },
+    {
+     "head": "Philosophical",
+     "text": "silence and the quiet mind"
+    },
+    {
+     "head": "Ethical",
+     "text": "duty of care, especially to children"
+    },
+    {
+     "head": "Economic",
+     "text": "attention as a commodity"
+    }
+   ]
+  }
+ ],
+ "carousel": {
+  "desk": "essay",
+  "format": "A",
+  "issue": "095",
+  "date": "21 October 2026",
+  "square": false,
+  "slides": [
+   {
+    "kind": "cover",
+    "kicker": "ESSAY OF THE DAY",
+    "headline": "A phone that never runs out of charge has made it easier to forget that the mind still does.",
+    "size": 0,
+    "pills": [
+     "ESSAY PAPER",
+     "125 MARKS",
+     "1,000 TO 1,200 WORDS"
+    ],
+    "takeaway": "Machines recharge fully. Minds do not. What does endless connection cost attention?"
+   },
+   {
+    "kind": "pipeline",
+    "label": "The decode",
+    "title": "What it says, and what it asks",
+    "steps": [
+     {
+      "k": "WHAT IT SAYS",
+      "head": "An essay about technology and mental rest.",
+      "body": "A phone recharges fully, every night"
+     },
+     {
+      "k": "WHAT IT MEANS",
+      "head": "Machines recharge fully.",
+      "body": "A mind does not work the same way"
+     },
+     {
+      "k": "WHAT IT ASKS",
+      "head": "Minds do not. What does endless connection cost attention?"
+     },
+     {
+      "k": "YOUR THESIS",
+      "head": "Endurance, machine versus human"
+     }
+    ],
+    "optional": true
+   },
+   {
+    "kind": "lens",
+    "label": "Hub and spokes",
+    "title": "Six lenses to sweep, clockwise",
+    "hub": "Endurance, machine versus human",
+    "lenses": [
+     {
+      "title": "Psychological",
+      "sub": "attention and cognitive offloading"
+     },
+     {
+      "title": "Social",
+      "sub": "the self performed for an audience"
+     },
+     {
+      "title": "Technological",
+      "sub": "design behind the feed"
+     },
+     {
+      "title": "Philosophical",
+      "sub": "silence and the quiet mind"
+     },
+     {
+      "title": "Ethical",
+      "sub": "duty of care, especially to children"
+     },
+     {
+      "title": "Economic",
+      "sub": "attention as a commodity"
+     }
+    ],
+    "optional": true
+   },
+   {
+    "kind": "opening",
+    "title": "Open: a commuter and a power bank",
+    "flat": "Technology is important in life and helps people stay connected. We must use it wisely.",
+    "why": "Restates topic, no tension, no thesis.",
+    "working": "She plugs her phone into a power bank each evening. It will wake up full. She will not. A mind does not recharge on command.",
+    "optional": true
+   },
+   {
+    "kind": "budget",
+    "label": "Word budget",
+    "title": "Where the 1,150 words go",
+    "segments": [
+     {
+      "label": "Opening scene",
+      "n": 120
+     },
+     {
+      "label": "Decode and thesis",
+      "n": 130
+     },
+     {
+      "label": "Six lenses",
+      "n": 600
+     },
+     {
+      "label": "Counter-view, answered",
+      "n": 150
+     },
+     {
+      "label": "Way forward",
+      "n": 100
+     },
+     {
+      "label": "Closing image",
+      "n": 50
+     }
+    ],
+    "optional": true
+   },
+   {
+    "kind": "practice",
+    "title": "Write the first page *tonight*",
+    "lines": [
+     "The opening and one lens are enough to start.",
+     "Get it evaluated at *evaluate.upscdesk.com*, five free evaluations every month.",
+     "The full brief goes to subscribers. Subscribe from the link on our Telegram channel, *t.me/upscdesk_essay*."
+    ],
+    "pill": "SAVE THIS TOPIC"
+   }
+  ]
+ }
+}
