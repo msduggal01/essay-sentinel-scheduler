@@ -1,0 +1,38 @@
+{
+ "desk": "essay",
+ "date": "2026-10-22",
+ "facts": [
+  {
+   "kind": "essay",
+   "topic": "A nation can close its IPO book in a hundred minutes and leave its job book open for a lifetime.",
+   "decode": "Capital closes a book in minutes, jobs take a generation. Which growth counts?",
+   "hub": "Jobless growth and dignity",
+   "items": [
+    {
+     "head": "Economic",
+     "text": "jobless growth pattern"
+    },
+    {
+     "head": "Historical",
+     "text": "an old Indian pattern"
+    },
+    {
+     "head": "Social",
+     "text": "the aspiration crisis"
+    },
+    {
+     "head": "Technological",
+     "text": "automation and gig work"
+    },
+    {
+     "head": "Ethical",
+     "text": "dignity of work"
+    },
+    {
+     "head": "Political",
+     "text": "the policy response"
+    }
+   ]
+  }
+ ]
+}
