@@ -1,0 +1,38 @@
+{
+ "desk": "essay",
+ "date": "2026-10-23",
+ "facts": [
+  {
+   "kind": "essay",
+   "topic": "The scientist counts the stars; the poet is the one who feels small beneath them.",
+   "decode": "Does counting replace wonder, or do reason and awe work as partners?",
+   "hub": "Reason and wonder together",
+   "items": [
+    {
+     "head": "Philosophical",
+     "text": "rivals or partners"
+    },
+    {
+     "head": "Historical",
+     "text": "Ramanujan and Hardy at Cambridge"
+    },
+    {
+     "head": "Scientific",
+     "text": "method versus meaning"
+    },
+    {
+     "head": "Psychological",
+     "text": "what judgement needs"
+    },
+    {
+     "head": "Technological",
+     "text": "measuring without feeling"
+    },
+    {
+     "head": "Global",
+     "text": "a counter view"
+    }
+   ]
+  }
+ ]
+}
