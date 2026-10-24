@@ -1,0 +1,152 @@
+{
+ "desk": "essay",
+ "date": "2026-10-24",
+ "facts": [
+  {
+   "kind": "essay",
+   "topic": "The smoke crosses the border the policy was never written to cross.",
+   "decode": "Harm moves by airshed, policy stops at the state line. What scale fits?",
+   "hub": "Ecology and federal governance",
+   "items": [
+    {
+     "head": "Ecological",
+     "text": "airsheds ignore political maps"
+    },
+    {
+     "head": "Economic",
+     "text": "the externality nobody prices"
+    },
+    {
+     "head": "Political",
+     "text": "federal coordination failure"
+    },
+    {
+     "head": "Ethical",
+     "text": "Article 21 and shared duty"
+    }
+   ]
+  }
+ ],
+ "carousel": {
+  "desk": "essay",
+  "format": "A",
+  "issue": "098",
+  "date": "24 October 2026",
+  "square": false,
+  "slides": [
+   {
+    "kind": "cover",
+    "kicker": "ESSAY OF THE DAY",
+    "headline": "The smoke crosses the border the policy was never written to cross.",
+    "size": 74,
+    "pills": [
+     "ESSAY PAPER",
+     "125 MARKS",
+     "1,000 TO 1,200 WORDS"
+    ],
+    "takeaway": "Harm moves by airshed, policy stops at the state line. What scale fits?"
+   },
+   {
+    "kind": "pipeline",
+    "label": "The decode",
+    "title": "What it says, and what it asks",
+    "steps": [
+     {
+      "k": "WHAT IT SAYS",
+      "head": "An essay about air pollution and states.",
+      "body": "Smoke = any transboundary harm"
+     },
+     {
+      "k": "WHAT IT MEANS",
+      "head": "Harm moves by airshed, policy stops at the state line.",
+      "body": "Border = a jurisdiction, not a wall"
+     },
+     {
+      "k": "WHAT IT ASKS",
+      "head": "What scale fits?"
+     },
+     {
+      "k": "YOUR THESIS",
+      "head": "Ecology and federal governance"
+     }
+    ],
+    "optional": true
+   },
+   {
+    "kind": "lens",
+    "label": "Hub and spokes",
+    "title": "Four lenses to sweep, clockwise",
+    "hub": "Ecology and federal governance",
+    "lenses": [
+     {
+      "title": "Ecological",
+      "sub": "airsheds ignore political maps"
+     },
+     {
+      "title": "Economic",
+      "sub": "the externality nobody prices"
+     },
+     {
+      "title": "Political",
+      "sub": "federal coordination failure"
+     },
+     {
+      "title": "Ethical",
+      "sub": "Article 21 and shared duty"
+     }
+    ],
+    "optional": true
+   },
+   {
+    "kind": "opening",
+    "title": "Open on the AQI scene, not a definition",
+    "flat": "Pollution is a big problem and it harms our cities. We must solve it together.",
+    "why": "Restates topic, no tension, no thesis.",
+    "working": "A city wakes to its worst air in a hundred days. The fires that caused it are three states away. The smoke crossed a border the policy forgot to draw.",
+    "optional": true
+   },
+   {
+    "kind": "budget",
+    "label": "Word budget",
+    "title": "Where the 1,150 words go",
+    "segments": [
+     {
+      "label": "Opening scene",
+      "n": 120
+     },
+     {
+      "label": "Decode and thesis",
+      "n": 130
+     },
+     {
+      "label": "Four lenses",
+      "n": 600
+     },
+     {
+      "label": "Counter-view, answered",
+      "n": 150
+     },
+     {
+      "label": "Way forward",
+      "n": 100
+     },
+     {
+      "label": "Closing image",
+      "n": 50
+     }
+    ],
+    "optional": true
+   },
+   {
+    "kind": "practice",
+    "title": "Write the first page *tonight*",
+    "lines": [
+     "The opening and one lens are enough to start.",
+     "Get it evaluated at *evaluate.upscdesk.com*, five free evaluations every month.",
+     "The full brief goes to subscribers. Subscribe from the link on our Telegram channel, *t.me/upscdesk_essay*."
+    ],
+    "pill": "SAVE THIS TOPIC"
+   }
+  ]
+ }
+}
