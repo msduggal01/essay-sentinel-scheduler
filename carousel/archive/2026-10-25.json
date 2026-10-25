@@ -1,0 +1,34 @@
+{
+ "desk": "essay",
+ "date": "2026-10-25",
+ "facts": [
+  {
+   "kind": "essay",
+   "topic": "A machine can finish the sentence, but it cannot feel the silence before it.",
+   "decode": "Fluency differs from feeling; speed is crowding out silence.",
+   "hub": "Creativity and the AI self",
+   "items": [
+    {
+     "head": "Individual",
+     "text": "the writer before the blank page"
+    },
+    {
+     "head": "Cultural",
+     "text": "art as evidence of human labour"
+    },
+    {
+     "head": "Technological",
+     "text": "pattern completion, not memory"
+    },
+    {
+     "head": "Governance",
+     "text": "regulation, investment and deepfakes"
+    },
+    {
+     "head": "Ethical",
+     "text": "counter view, who gets to create"
+    }
+   ]
+  }
+ ]
+}
